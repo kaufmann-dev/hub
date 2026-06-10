@@ -1,5 +1,5 @@
 [variables]
-NIXPACKS_NODE_VERSION = "22"
+NIXPACKS_NODE_VERSION = "22.12"
 
 [phases.build]
 cmds = ["DATABASE_URL=postgres://placeholder:5432/placeholder pnpm build"]
