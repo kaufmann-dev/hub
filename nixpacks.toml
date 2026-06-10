@@ -1,0 +1,8 @@
+[variables]
+NIXPACKS_NODE_VERSION = "24"
+
+[phases.build]
+cmds = ["DATABASE_URL=postgres://placeholder:5432/placeholder pnpm build"]
+
+[start]
+cmd = "node scripts/migrate.mjs && node build"
