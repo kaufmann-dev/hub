@@ -1,0 +1,44 @@
+# Local production stack for podman compose.
+#   podman compose up --build
+# The app applies DB migrations on start. To seed the personal websites + cities once,
+# run on the host against the compose DB (exposed on 5433):
+#   DATABASE_URL=postgres://postgres:postgres@localhost:5433/hub pnpm db:seed
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hub
+    ports:
+      - '5433:5432'
+    volumes:
+      - hub-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d hub']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Containerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/hub
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-change-me-in-production}
+      GITHUB_USERNAME: ${GITHUB_USERNAME:-kaufmann-dev}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - '3000:3000'
+
+volumes:
+  hub-db:

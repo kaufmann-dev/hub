@@ -1,0 +1,15 @@
+node_modules
+build
+.svelte-kit
+.git
+.env
+.env.*
+!.env.example
+*.md
+.vscode
+.idea
+.agents
+.claude
+.codex
+.gemini
+.opencode
