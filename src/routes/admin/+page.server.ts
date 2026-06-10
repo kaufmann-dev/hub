@@ -9,10 +9,10 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async () => {
 	const [websites, projects, cities] = await Promise.all([
 		db.select().from(website).orderBy(asc(website.sortOrder), asc(website.title)),
-		db
-			.select()
-			.from(githubProject)
-			.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars)),
+			db
+				.select()
+				.from(githubProject)
+				.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars), asc(githubProject.id)),
 		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name))
 	]);
 	return { websites, projects, cities };

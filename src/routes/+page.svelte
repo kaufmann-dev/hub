@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, Star, ExternalLink, Settings, Sun, Moon, ScrollText } from '@lucide/svelte';
+	import { Search, Star, ExternalLink, Settings, Sun, Moon } from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
@@ -22,7 +22,7 @@
 	}
 
 	const filteredWebsites = $derived(
-		data.websites.filter((w) => matches(w.title, w.description, w.url, w.imprintSite))
+		data.websites.filter((w) => matches(w.title, w.description, w.url))
 	);
 	const filteredProjects = $derived(
 		data.projects.filter((p) =>
@@ -67,7 +67,7 @@
 	<meta name="description" content="Personal hub: websites, GitHub projects, clocks and weather." />
 </svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="bg-background text-foreground flex min-h-screen flex-col">
 	<!-- Filter bar (sticky, top) -->
 	<header class="bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
 		<div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
@@ -94,7 +94,7 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-6xl space-y-10 px-4 py-8">
+	<main class="mx-auto max-w-6xl flex-1 space-y-10 px-4 py-8">
 		<!-- City clocks + weather -->
 		{#if data.cities.length}
 			<section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -139,7 +139,12 @@
 								class="flex items-start gap-3"
 							>
 								{#if favicon}
-									<img src={favicon} alt="" class="mt-0.5 size-6 shrink-0 rounded" loading="lazy" />
+									<img
+										src={favicon}
+										alt=""
+										class="mt-0.5 size-6 shrink-0 rounded"
+										loading="lazy"
+									/>
 								{:else}
 									<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
 								{/if}
@@ -157,21 +162,11 @@
 									{/if}
 								</span>
 							</a>
-							{#if site.imprintSite}
-								<a
-									href={`https://legal.kaufmann.dev/imprint?site=${encodeURIComponent(site.imprintSite)}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									class="text-muted-foreground hover:text-foreground mt-2 inline-flex w-fit items-center gap-1 text-xs"
-								>
-									<ScrollText class="size-3" /> Imprint
-								</a>
-							{/if}
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<p class="text-muted-foreground text-sm">No websites match “{q}”.</p>
+				<p class="text-muted-foreground text-sm">No websites match "{q}".</p>
 			{/if}
 		</section>
 
@@ -223,7 +218,7 @@
 					{/each}
 				</div>
 			{:else if data.projects.length}
-				<p class="text-muted-foreground text-sm">No projects match “{q}”.</p>
+				<p class="text-muted-foreground text-sm">No projects match "{q}".</p>
 			{:else}
 				<p class="text-muted-foreground text-sm">
 					No projects synced yet. Open <a class="underline" href="/admin">Admin</a> and run a sync.
@@ -231,4 +226,27 @@
 			{/if}
 		</section>
 	</main>
+
+	<!-- Footer -->
+	<footer class="border-t">
+		<div class="mx-auto flex max-w-6xl items-center justify-center gap-4 px-4 py-6 text-sm">
+			<a
+				href="https://legal.kaufmann.dev/imprint"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-muted-foreground hover:text-foreground"
+			>
+				Imprint
+			</a>
+			<span class="text-muted-foreground">·</span>
+			<a
+				href="https://legal.kaufmann.dev/privacy"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-muted-foreground hover:text-foreground"
+			>
+				Privacy
+			</a>
+		</div>
+	</footer>
 </div>

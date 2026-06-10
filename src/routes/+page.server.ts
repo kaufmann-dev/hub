@@ -17,7 +17,7 @@ export const load: PageServerLoad = async () => {
 			.select()
 			.from(githubProject)
 			.where(eq(githubProject.hidden, false))
-			.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars)),
+			.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars), asc(githubProject.id)),
 		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name))
 	]);
 
