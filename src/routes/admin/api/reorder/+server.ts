@@ -5,18 +5,55 @@ import { db } from '$lib/server/db';
 import { city, githubProject, website } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
+const websiteKindSchema = z.enum(['personal', 'third_party']);
+const idsSchema = z.array(z.number().int().positive());
+
 const reorderSchema = z
-	.object({
-		type: z.enum(['websites', 'projects', 'cities']),
-		ids: z.array(z.number().int().positive())
-	})
-	.strict()
-	.superRefine(({ ids }, ctx) => {
+	.discriminatedUnion('type', [
+		z
+			.object({
+				type: z.literal('websites'),
+				ids: idsSchema,
+				kindById: z.record(z.string(), websiteKindSchema)
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal('projects'),
+				ids: idsSchema,
+				hiddenById: z.record(z.string(), z.boolean())
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal('cities'),
+				ids: idsSchema
+			})
+			.strict()
+	])
+	.superRefine((data, ctx) => {
+		const { ids } = data;
 		if (new Set(ids).size !== ids.length) {
 			ctx.addIssue({
 				code: 'custom',
 				path: ['ids'],
 				message: 'IDs must be unique'
+			});
+		}
+
+		if (data.type === 'websites' && !sameIdKeys(data.kindById, ids)) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['kindById'],
+				message: 'Website kinds must match submitted IDs'
+			});
+		}
+
+		if (data.type === 'projects' && !sameIdKeys(data.hiddenById, ids)) {
+			ctx.addIssue({
+				code: 'custom',
+				path: ['hiddenById'],
+				message: 'Project visibility values must match submitted IDs'
 			});
 		}
 	});
@@ -28,6 +65,13 @@ function sameIdSet(submitted: number[], current: number[]): boolean {
 	if (submitted.length !== current.length) return false;
 	const submittedIds = new Set(submitted);
 	return current.every((id) => submittedIds.has(id));
+}
+
+function sameIdKeys(valuesById: Record<string, unknown>, ids: number[]): boolean {
+	const keys = Object.keys(valuesById);
+	if (keys.length !== ids.length) return false;
+	const idKeys = new Set(ids.map(String));
+	return keys.every((key) => idKeys.has(key));
 }
 
 async function currentIdsFor(type: ReorderType): Promise<number[]> {
@@ -89,6 +133,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	await db.transaction(async (tx) => {
 		for (const [sortOrder, id] of ids.entries()) {
+			if (parsed.data.type === 'websites') {
+				await tx
+					.update(website)
+					.set({ sortOrder, kind: parsed.data.kindById[String(id)] })
+					.where(eq(website.id, id));
+				continue;
+			}
+
+			if (parsed.data.type === 'projects') {
+				await tx
+					.update(githubProject)
+					.set({ sortOrder, hidden: parsed.data.hiddenById[String(id)] })
+					.where(eq(githubProject.id, id));
+				continue;
+			}
+
 			await setSortOrder(tx, type, id, sortOrder);
 		}
 	});

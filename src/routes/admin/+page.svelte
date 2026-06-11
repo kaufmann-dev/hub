@@ -20,6 +20,9 @@
 	import type { PageData } from './$types';
 
 	type AdminTab = 'websites' | 'projects' | 'cities';
+	type WebsiteKind = 'personal' | 'third_party';
+	type ProjectGroup = 'active' | 'inactive';
+	type DropGroup = WebsiteKind | ProjectGroup;
 	type Row = { id: number };
 
 	const adminTabs = ['websites', 'projects', 'cities'] as const;
@@ -33,10 +36,40 @@
 	let websiteOrder = $state.raw<number[] | null>(null);
 	let projectOrder = $state.raw<number[] | null>(null);
 	let cityOrder = $state.raw<number[] | null>(null);
-	let allHidden = $derived(data.projects.every((p) => p.hidden));
+	let websiteKindOverrides = $state.raw<Record<string, WebsiteKind>>({});
+	let projectHiddenOverrides = $state.raw<Record<string, boolean>>({});
 	let activeTab = $derived(normalizeTab(page.url.searchParams.get('tab')));
-	let displayedWebsites = $derived(orderedRows(data.websites, websiteOrder));
-	let displayedProjects = $derived(orderedRows(data.projects, projectOrder));
+	let displayedWebsites = $derived(
+		orderedRows(data.websites, websiteOrder).map((site) => ({
+			...site,
+			kind: websiteKindFor(site)
+		}))
+	);
+	let personalWebsites = $derived(displayedWebsites.filter((site) => site.kind === 'personal'));
+	let thirdPartyWebsites = $derived(
+		displayedWebsites.filter((site) => site.kind === 'third_party')
+	);
+	let websiteGroups = $derived(
+		[
+			{ id: 'personal' as const, title: 'Personal websites', rows: personalWebsites },
+			{ id: 'third_party' as const, title: 'Third-party websites', rows: thirdPartyWebsites }
+		].filter((group) => group.rows.length > 0)
+	);
+	let displayedProjects = $derived(
+		orderedRows(data.projects, projectOrder).map((project) => ({
+			...project,
+			hidden: projectHiddenFor(project)
+		}))
+	);
+	let allHidden = $derived(displayedProjects.every((p) => p.hidden));
+	let activeProjects = $derived(displayedProjects.filter((project) => !project.hidden));
+	let inactiveProjects = $derived(displayedProjects.filter((project) => project.hidden));
+	let projectGroups = $derived(
+		[
+			{ id: 'active' as const, title: 'Active projects', rows: activeProjects },
+			{ id: 'inactive' as const, title: 'Inactive projects', rows: inactiveProjects }
+		].filter((group) => group.rows.length > 0)
+	);
 	let displayedCities = $derived(orderedRows(data.cities, cityOrder));
 
 	function normalizeTab(tab: string | null): AdminTab {
@@ -62,9 +95,41 @@
 		return [...ordered, ...rows.filter((row) => !orderedIds.has(row.id))];
 	}
 
+	function asWebsiteKind(kind: string): WebsiteKind {
+		return kind === 'third_party' ? 'third_party' : 'personal';
+	}
+
+	function websiteKindFor(site: PageData['websites'][number]): WebsiteKind {
+		return websiteKindOverrides[String(site.id)] ?? asWebsiteKind(site.kind);
+	}
+
+	function projectHiddenFor(project: PageData['projects'][number]): boolean {
+		return projectHiddenOverrides[String(project.id)] ?? project.hidden;
+	}
+
+	function websiteKindById(overrides = websiteKindOverrides): Record<string, WebsiteKind> {
+		return Object.fromEntries(
+			data.websites.map((site) => [
+				String(site.id),
+				overrides[String(site.id)] ?? asWebsiteKind(site.kind)
+			])
+		);
+	}
+
+	function projectHiddenById(overrides = projectHiddenOverrides): Record<string, boolean> {
+		return Object.fromEntries(
+			data.projects.map((project) => [
+				String(project.id),
+				overrides[String(project.id)] ?? project.hidden
+			])
+		);
+	}
+
 	function currentIds(type: AdminTab): number[] {
-		if (type === 'websites') return displayedWebsites.map((row) => row.id);
-		if (type === 'projects') return displayedProjects.map((row) => row.id);
+		if (type === 'websites') {
+			return [...personalWebsites, ...thirdPartyWebsites].map((row) => row.id);
+		}
+		if (type === 'projects') return [...activeProjects, ...inactiveProjects].map((row) => row.id);
 		return displayedCities.map((row) => row.id);
 	}
 
@@ -104,7 +169,28 @@
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
 	}
 
-	async function handleDrop(type: AdminTab, targetId: number, event: DragEvent) {
+	function reorderBody(
+		type: AdminTab,
+		ids: number[],
+		websiteKinds = websiteKindOverrides,
+		projectHidden = projectHiddenOverrides
+	) {
+		if (type === 'websites') return { type, ids, kindById: websiteKindById(websiteKinds) };
+		if (type === 'projects') return { type, ids, hiddenById: projectHiddenById(projectHidden) };
+		return { type, ids };
+	}
+
+	function clearProjectOverrides() {
+		projectHiddenOverrides = {};
+		projectOrder = null;
+	}
+
+	async function handleDrop(
+		type: AdminTab,
+		targetId: number,
+		event: DragEvent,
+		targetGroup?: DropGroup
+	) {
 		event.preventDefault();
 		const sourceId =
 			dragging?.type === type ? dragging.id : Number(event.dataTransfer?.getData('text/plain'));
@@ -119,7 +205,32 @@
 		const afterTarget = event.clientY > bounds.top + bounds.height / 2;
 		const previousIds = currentIds(type);
 		const nextIds = movedIds(previousIds, sourceId, targetId, afterTarget);
-		if (nextIds.join(',') === previousIds.join(',')) return;
+		const groupChanged =
+			(type === 'websites' &&
+				(targetGroup === 'personal' || targetGroup === 'third_party') &&
+				websiteKindById()[String(sourceId)] !== targetGroup) ||
+			(type === 'projects' &&
+				(targetGroup === 'active' || targetGroup === 'inactive') &&
+				projectHiddenById()[String(sourceId)] !== (targetGroup === 'inactive'));
+		if (nextIds.join(',') === previousIds.join(',') && !groupChanged) return;
+
+		const previousWebsiteKindOverrides = websiteKindOverrides;
+		const previousProjectHiddenOverrides = projectHiddenOverrides;
+		let nextWebsiteKindOverrides = websiteKindOverrides;
+		let nextProjectHiddenOverrides = projectHiddenOverrides;
+
+		if (type === 'websites' && (targetGroup === 'personal' || targetGroup === 'third_party')) {
+			nextWebsiteKindOverrides = { ...websiteKindOverrides, [sourceId]: targetGroup };
+			websiteKindOverrides = nextWebsiteKindOverrides;
+		}
+
+		if (type === 'projects' && (targetGroup === 'active' || targetGroup === 'inactive')) {
+			nextProjectHiddenOverrides = {
+				...projectHiddenOverrides,
+				[sourceId]: targetGroup === 'inactive'
+			};
+			projectHiddenOverrides = nextProjectHiddenOverrides;
+		}
 
 		setOrder(type, nextIds);
 		savingReorder = type;
@@ -127,12 +238,16 @@
 			const response = await fetch('/admin/api/reorder', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ type, ids: nextIds })
+				body: JSON.stringify(
+					reorderBody(type, nextIds, nextWebsiteKindOverrides, nextProjectHiddenOverrides)
+				)
 			});
 
 			if (!response.ok) throw new Error('Reorder failed');
 		} catch {
 			setOrder(type, previousIds);
+			websiteKindOverrides = previousWebsiteKindOverrides;
+			projectHiddenOverrides = previousProjectHiddenOverrides;
 			reorderError = 'Order could not be saved.';
 		} finally {
 			savingReorder = null;
@@ -181,46 +296,55 @@
 				{#if reorderError && activeTab === 'websites'}
 					<p class="text-destructive text-sm">{reorderError}</p>
 				{/if}
-				<div class="space-y-3" role="list" aria-label="Websites">
-					{#each displayedWebsites as site (site.id)}
-						<div
-							class="bg-card flex items-center gap-3 rounded-lg border p-3"
-							role="listitem"
-							ondragover={handleDragOver}
-							ondrop={(event) => handleDrop('websites', site.id, event)}
-						>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-								draggable="true"
-								aria-label={`Drag ${site.title}`}
-								disabled={savingReorder === 'websites'}
-								ondragstart={(event) => handleDragStart('websites', site.id, event)}
-								ondragend={() => (dragging = null)}
+				<div class="space-y-5">
+					{#each websiteGroups as group (group.id)}
+						<section class="space-y-3" aria-labelledby={`websites-${group.id}`}>
+							<h2
+								id={`websites-${group.id}`}
+								class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
 							>
-								<GripVertical class="size-4" />
-							</button>
-							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2 font-medium">
-									{site.title}
-									<Badge variant="secondary">{site.kind}</Badge>
-								</div>
-								<div class="text-muted-foreground truncate text-sm">{site.url}</div>
+								{group.title}
+							</h2>
+							<div class="space-y-3" role="list" aria-label={group.title}>
+								{#each group.rows as site (site.id)}
+									<div
+										class="bg-card flex items-center gap-3 rounded-lg border p-3"
+										role="listitem"
+										ondragover={handleDragOver}
+										ondrop={(event) => handleDrop('websites', site.id, event, group.id)}
+									>
+										<button
+											type="button"
+											class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
+											draggable="true"
+											aria-label={`Drag ${site.title}`}
+											disabled={savingReorder === 'websites'}
+											ondragstart={(event) => handleDragStart('websites', site.id, event)}
+											ondragend={() => (dragging = null)}
+										>
+											<GripVertical class="size-4" />
+										</button>
+										<div class="min-w-0 flex-1">
+											<div class="font-medium">{site.title}</div>
+											<div class="text-muted-foreground truncate text-sm">{site.url}</div>
+										</div>
+										<a
+											href={`/admin/websites/${site.id}`}
+											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
+											aria-label="Edit"
+										>
+											<Pencil class="size-4" />
+										</a>
+										<form method="POST" action="?/deleteWebsite" use:enhance>
+											<input type="hidden" name="id" value={site.id} />
+											<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
+												<Trash2 class="text-destructive size-4" />
+											</Button>
+										</form>
+									</div>
+								{/each}
 							</div>
-							<a
-								href={`/admin/websites/${site.id}`}
-								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
-								aria-label="Edit"
-							>
-								<Pencil class="size-4" />
-							</a>
-							<form method="POST" action="?/deleteWebsite" use:enhance>
-								<input type="hidden" name="id" value={site.id} />
-								<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
-									<Trash2 class="text-destructive size-4" />
-								</Button>
-							</form>
-						</div>
+						</section>
 					{:else}
 						<p class="text-muted-foreground text-sm">No websites yet.</p>
 					{/each}
@@ -235,7 +359,16 @@
 							{syncStatus.message}
 						</span>
 					{/if}
-					<form method="POST" action="?/setAllProjectsHidden" use:enhance>
+					<form
+						method="POST"
+						action="?/setAllProjectsHidden"
+						use:enhance={() => {
+							return async ({ update }) => {
+								await update();
+								clearProjectOverrides();
+							};
+						}}
+					>
 						<input type="hidden" name="hidden" value={(!allHidden).toString()} />
 						<Button type="submit" variant="outline" size="sm">
 							{#if allHidden}
@@ -272,60 +405,84 @@
 				{#if reorderError && activeTab === 'projects'}
 					<p class="text-destructive text-sm">{reorderError}</p>
 				{/if}
-				<div class="space-y-3" role="list" aria-label="Projects">
-					{#each displayedProjects as project (project.id)}
-						<div
-							class={[
-								'bg-card flex items-center gap-3 rounded-lg border p-3',
-								project.hidden && 'opacity-50'
-							]}
-							role="listitem"
-							ondragover={handleDragOver}
-							ondrop={(event) => handleDrop('projects', project.id, event)}
-						>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-								draggable="true"
-								aria-label={`Drag ${project.name}`}
-								disabled={savingReorder === 'projects'}
-								ondragstart={(event) => handleDragStart('projects', project.id, event)}
-								ondragend={() => (dragging = null)}
+				<div class="space-y-5">
+					{#each projectGroups as group (group.id)}
+						<section class="space-y-3" aria-labelledby={`projects-${group.id}`}>
+							<h2
+								id={`projects-${group.id}`}
+								class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
 							>
-								<GripVertical class="size-4" />
-							</button>
-							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2 font-medium">
-									{project.name}
-									<span class="text-muted-foreground inline-flex items-center gap-1 text-xs">
-										<Star class="size-3" />{project.stars}
-									</span>
-									{#if project.language}<Badge variant="secondary">{project.language}</Badge>{/if}
-								</div>
-								<div class="text-muted-foreground truncate text-sm">
-									{project.descriptionOverride ?? project.description ?? '—'}
-								</div>
+								{group.title}
+							</h2>
+							<div class="space-y-3" role="list" aria-label={group.title}>
+								{#each group.rows as project (project.id)}
+									<div
+										class={[
+											'bg-card flex items-center gap-3 rounded-lg border p-3',
+											project.hidden && 'opacity-50'
+										]}
+										role="listitem"
+										ondragover={handleDragOver}
+										ondrop={(event) => handleDrop('projects', project.id, event, group.id)}
+									>
+										<button
+											type="button"
+											class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
+											draggable="true"
+											aria-label={`Drag ${project.name}`}
+											disabled={savingReorder === 'projects'}
+											ondragstart={(event) => handleDragStart('projects', project.id, event)}
+											ondragend={() => (dragging = null)}
+										>
+											<GripVertical class="size-4" />
+										</button>
+										<div class="min-w-0 flex-1">
+											<div class="flex items-center gap-2 font-medium">
+												{project.name}
+												<span class="text-muted-foreground inline-flex items-center gap-1 text-xs">
+													<Star class="size-3" />{project.stars}
+												</span>
+												{#if project.language}<Badge variant="secondary">{project.language}</Badge
+													>{/if}
+											</div>
+											<div class="text-muted-foreground truncate text-sm">
+												{project.descriptionOverride ?? project.description ?? '—'}
+											</div>
+										</div>
+										<form
+											method="POST"
+											action="?/toggleProjectHidden"
+											use:enhance={() => {
+												return async ({ update }) => {
+													await update();
+													clearProjectOverrides();
+												};
+											}}
+										>
+											<input type="hidden" name="id" value={project.id} />
+											<input type="hidden" name="hidden" value={(!project.hidden).toString()} />
+											<Button
+												type="submit"
+												variant="ghost"
+												size="icon"
+												aria-label={project.hidden ? 'Show' : 'Hide'}
+											>
+												{#if project.hidden}<EyeOff class="size-4" />{:else}<Eye
+														class="size-4"
+													/>{/if}
+											</Button>
+										</form>
+										<a
+											href={`/admin/projects/${project.id}`}
+											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
+											aria-label="Edit"
+										>
+											<Pencil class="size-4" />
+										</a>
+									</div>
+								{/each}
 							</div>
-							<form method="POST" action="?/toggleProjectHidden" use:enhance>
-								<input type="hidden" name="id" value={project.id} />
-								<input type="hidden" name="hidden" value={(!project.hidden).toString()} />
-								<Button
-									type="submit"
-									variant="ghost"
-									size="icon"
-									aria-label={project.hidden ? 'Show' : 'Hide'}
-								>
-									{#if project.hidden}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
-								</Button>
-							</form>
-							<a
-								href={`/admin/projects/${project.id}`}
-								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
-								aria-label="Edit"
-							>
-								<Pencil class="size-4" />
-							</a>
-						</div>
+						</section>
 					{:else}
 						<p class="text-muted-foreground text-sm">No projects synced yet. Click “Sync now”.</p>
 					{/each}
