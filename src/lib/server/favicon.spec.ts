@@ -70,6 +70,21 @@ describe('favicon discovery', () => {
 		expect(fetcher).toHaveBeenCalledTimes(1);
 	});
 
+	it('decodes URL-encoded inline SVG bytes', async () => {
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>';
+		const fetcher = vi.fn(
+			async () =>
+				new Response(`<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(svg)}">`, {
+					headers: { 'content-type': 'text/html' }
+				})
+		);
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.data).toEqual(Buffer.from(svg));
+		expect(result.sourceUrl).toBe('https://example.com/');
+	});
+
 	it('downloads the first valid declared icon', async () => {
 		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
 			const url = String(input);
@@ -162,6 +177,25 @@ describe('favicon discovery', () => {
 		expect(result.data).toEqual(png);
 		expect(result.contentType).toBe('image/png');
 		expect(result.sourceUrl).toBe(calls[4]);
+	});
+
+	it('uses DuckDuckGo after the Google provider fails', async () => {
+		const png = Buffer.from('89504e470d0a1a0a', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://icons.duckduckgo.com/ip3/example.com.ico') {
+				return new Response(png, { headers: { 'content-type': 'image/png' } });
+			}
+			return new Response('missing', { status: 404 });
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.data).toEqual(png);
+		expect(result.sourceUrl).toBe('https://icons.duckduckgo.com/ip3/example.com.ico');
+		expect(fetcher.mock.calls.map(([input]) => String(input)).at(-2)).toMatch(
+			/^https:\/\/www\.google\.com\/s2\/favicons\?/
+		);
 	});
 
 	it('rejects provider errors and non-image placeholders before trying the next provider', async () => {

@@ -51,6 +51,28 @@ describe('favicon cache refresh', () => {
 		expect(mock.writes[0]?.set).toHaveProperty('data');
 	});
 
+	it('stores downloaded provider favicon bytes after local discovery fails', async () => {
+		const png = Buffer.from('89504e470d0a1a0a', 'hex');
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: URL | RequestInfo) =>
+				String(input).startsWith('https://www.google.com/s2/favicons?')
+					? new Response(png, { headers: { 'content-type': 'image/png' } })
+					: new Response('missing', { status: 404 })
+			)
+		);
+
+		await expect(refreshWebsiteFavicon(103, 'https://example.com/')).resolves.toBe(true);
+
+		expect(mock.writes).toHaveLength(1);
+		expect(mock.writes[0]?.values).toMatchObject({
+			websiteId: 103,
+			data: png,
+			contentType: 'image/png',
+			sourceUrl: expect.stringMatching(/^https:\/\/www\.google\.com\/s2\/favicons\?/)
+		});
+	});
+
 	it('records only the check time when refresh fails, preserving any existing bytes', async () => {
 		await expect(refreshWebsiteFavicon(102, 'http://localhost/')).resolves.toBe(false);
 
