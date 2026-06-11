@@ -33,11 +33,19 @@ export async function projectsAreStale(maxAgeMs: number): Promise<boolean> {
 }
 
 /**
- * Fetch the configured account's public repos and upsert them by GitHub repo id.
+ * Fetch the configured account's repos and upsert them by GitHub repo id.
  * Synced fields are overwritten; user override fields are preserved.
  * Returns the number of repos processed. Throws on any failure so callers can
  * report it; concurrent calls share a single in-flight request.
  */
+export function githubReposUrl(username: string, hasToken: boolean): string {
+	if (hasToken) {
+		return 'https://api.github.com/user/repos?per_page=100&sort=updated&visibility=all&affiliation=owner';
+	}
+
+	return `https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`;
+}
+
 export async function syncGithubProjects(): Promise<number> {
 	if (inFlight) return inFlight;
 	inFlight = (async () => {
@@ -48,11 +56,11 @@ export async function syncGithubProjects(): Promise<number> {
 				'X-GitHub-Api-Version': '2022-11-28',
 				'User-Agent': 'hub.kaufmann.dev'
 			};
-			if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
+			const token = env.GITHUB_TOKEN;
+			if (token) headers.Authorization = `Bearer ${token}`;
 
 			const allRepos: GithubRepo[] = [];
-			let url: string | null =
-				`https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`;
+			let url: string | null = githubReposUrl(username, Boolean(token));
 
 			while (url) {
 				const res: Response = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });

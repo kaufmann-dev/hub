@@ -38,7 +38,7 @@ Copy `.env.example` to `.env` and fill it in:
 | `ADMIN_PASSWORD`       | Password for `/admin`                                                 |
 | `ADMIN_SESSION_SECRET` | Secret used to sign the admin session cookie (`openssl rand -hex 32`) |
 | `GITHUB_USERNAME`      | GitHub account whose public repos are synced (default `kaufmann-dev`) |
-| `GITHUB_TOKEN`         | Optional; raises the GitHub API rate limit                            |
+| `GITHUB_TOKEN`         | Optional; enables private owned repos when the token has access       |
 
 ## Development
 
@@ -117,4 +117,5 @@ Required:
 Optional:
 
 - `GITHUB_USERNAME` — GitHub account to sync (default `kaufmann-dev`)
-- `GITHUB_TOKEN` — raises the GitHub API rate limit; sync works without it
+- `GITHUB_TOKEN` — enables private owned repos and raises the GitHub API rate limit when
+  the token has access to those repositories; sync falls back to public repos without it
