@@ -70,6 +70,7 @@
 	"dependencies": {
 		"better-auth": "^1.6.15",
 		"better-svelte-email": "^2.1.1",
+		"cheerio": "^1.2.0",
 		"drizzle-orm": "^0.45.2",
 		"mode-watcher": "^1.1.0",
 		"postgres": "^3.4.9",

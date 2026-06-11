@@ -5,8 +5,13 @@ import {
 	text,
 	boolean,
 	timestamp,
-	doublePrecision
+	doublePrecision,
+	customType
 } from 'drizzle-orm/pg-core';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+	dataType: () => 'bytea'
+});
 
 /** Personal and third-party websites shown on the hub. */
 export const website = pgTable('website', {
@@ -22,6 +27,17 @@ export const website = pgTable('website', {
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+/** Locally cached discovered favicon for a website. */
+export const websiteFavicon = pgTable('website_favicon', {
+	websiteId: integer('website_id')
+		.primaryKey()
+		.references(() => website.id, { onDelete: 'cascade' }),
+	data: bytea('data'),
+	contentType: text('content_type'),
+	sourceUrl: text('source_url'),
+	checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow()
 });
 
 /** GitHub repositories synced from the configured account, with editable overrides. */
@@ -58,5 +74,6 @@ export const city = pgTable('city', {
 });
 
 export type Website = typeof website.$inferSelect;
+export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
 export type GithubProject = typeof githubProject.$inferSelect;
 export type City = typeof city.$inferSelect;

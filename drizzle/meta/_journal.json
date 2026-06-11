@@ -15,6 +15,13 @@
       "when": 1749638150000,
       "tag": "0001_drop_imprint_site",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781186428736,
+      "tag": "0002_flowery_cargill",
+      "breakpoints": true
     }
   ]
 }

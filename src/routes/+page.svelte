@@ -7,6 +7,7 @@
 	import { faviconFor } from '$lib/favicon';
 	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
 	import GithubMark from '$lib/components/hub/GithubMark.svelte';
+	import WebsiteIcon from '$lib/components/hub/WebsiteIcon.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -140,7 +141,7 @@
 					</h2>
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
-							{@const favicon = faviconFor(site.url, site.iconUrl)}
+							{@const favicon = faviconFor(site.id, site.iconUrl)}
 							<div
 								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
 							>
@@ -150,16 +151,7 @@
 									rel="noopener noreferrer"
 									class="flex items-start gap-3"
 								>
-									{#if favicon}
-										<img
-											src={favicon}
-											alt=""
-											class="mt-0.5 size-6 shrink-0 rounded"
-											loading="lazy"
-										/>
-									{:else}
-										<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
-									{/if}
+									<WebsiteIcon src={favicon} />
 									<span class="min-w-0 flex-1">
 										<span class="flex items-center gap-1.5 font-medium">
 											{site.title}
