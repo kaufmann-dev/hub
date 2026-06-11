@@ -20,6 +20,56 @@ describe('favicon discovery', () => {
 		]);
 	});
 
+	it('derives dark icons from absolute and relative data-base-href declarations', () => {
+		const candidates = faviconCandidates(
+			`
+				<link rel="icon" href="https://cdn.example.com/favicon.svg"
+					data-base-href="https://cdn.example.com/favicon">
+				<link rel="icon" href="/assets/product.png" data-base-href="../brand/product">
+			`,
+			new URL('https://example.com/path/page')
+		);
+
+		expect(candidates.unqualified.map(String)).toEqual([
+			'https://cdn.example.com/favicon.svg',
+			'https://example.com/assets/product.png'
+		]);
+		expect(candidates.dark.map(String)).toEqual([
+			'https://cdn.example.com/favicon-dark.svg',
+			'https://example.com/brand/product-dark.png'
+		]);
+	});
+
+	it('prioritizes explicit dark declarations over derived dark icons', () => {
+		const candidates = faviconCandidates(
+			`
+				<link rel="icon" href="/favicon.svg" data-base-href="/favicon">
+				<link rel="icon" href="/explicit-dark.svg" media="(prefers-color-scheme: dark)">
+			`,
+			new URL('https://example.com/')
+		);
+
+		expect(candidates.dark.map(String)).toEqual([
+			'https://example.com/explicit-dark.svg',
+			'https://example.com/favicon-dark.svg'
+		]);
+	});
+
+	it('ignores malformed, unsupported, and extensionless data-base-href declarations', () => {
+		const candidates = faviconCandidates(
+			`
+				<link rel="icon" href="/favicon.svg" data-base-href="http://[invalid">
+				<link rel="icon" href="/favicon.png" data-base-href="file:///tmp/favicon">
+				<link rel="icon" href="/favicon" data-base-href="/favicon">
+				<link rel="icon" href="file:///tmp/favicon.svg" data-base-href="/invalid-href">
+				<link rel="icon" href="/print.svg" data-base-href="/print" media="print">
+			`,
+			new URL('https://example.com/')
+		);
+
+		expect(candidates.dark).toEqual([]);
+	});
+
 	it('accepts URL-encoded and base64 inline SVG icons', () => {
 		const urlEncoded =
 			'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E';
@@ -106,6 +156,51 @@ describe('favicon discovery', () => {
 		expect(result.contentType).toBe('image/svg+xml');
 		expect(result.sourceUrl).toBe('https://example.com/favicon.svg');
 		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('downloads a distinct dark icon derived from data-base-href', async () => {
+		const light = Buffer.from('89504e470d0a1a0a', 'hex');
+		const dark = Buffer.from('474946383961', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/') {
+				return new Response('<link rel="icon" href="/favicon.svg" data-base-href="/favicon">', {
+					headers: { 'content-type': 'text/html' }
+				});
+			}
+			return new Response(url.endsWith('/favicon-dark.svg') ? dark : light);
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result).toMatchObject({
+			data: light,
+			sourceUrl: 'https://example.com/favicon.svg',
+			darkData: dark,
+			darkSourceUrl: 'https://example.com/favicon-dark.svg'
+		});
+	});
+
+	it('falls back to the default icon when a derived dark asset is missing', async () => {
+		const light = Buffer.from('89504e470d0a1a0a', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/') {
+				return new Response('<link rel="icon" href="/favicon.png" data-base-href="/favicon">', {
+					headers: { 'content-type': 'text/html' }
+				});
+			}
+			if (url.endsWith('/favicon-dark.png')) return new Response('missing', { status: 404 });
+			return new Response(light);
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.sourceUrl).toBe('https://example.com/favicon.png');
+		expect(result.darkData).toBeNull();
+		expect(fetcher.mock.calls.map(([input]) => String(input))).toContain(
+			'https://example.com/favicon-dark.png'
+		);
 	});
 
 	it('prefers explicit light and dark declarations for their matching themes', async () => {

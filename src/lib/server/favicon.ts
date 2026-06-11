@@ -152,6 +152,7 @@ function inlineSvgData(url: URL): Buffer | null {
 export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 	const $ = cheerio.load(html);
 	const groups: CandidateGroups = { light: [], dark: [], unqualified: [] };
+	const derivedDark: URL[] = [];
 	$('link[href]').each((_index, element) => {
 		const rel = ($(element).attr('rel') ?? '').toLowerCase().split(/\s+/);
 		if (!rel.some((value) => value === 'icon' || value === 'apple-touch-icon')) return;
@@ -169,18 +170,32 @@ export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 				: media
 					? null
 					: groups.unqualified;
-			if (
-				group &&
+			const validDeclaration =
+				group !== null &&
 				(['http:', 'https:'].includes(url.protocol) ||
-					(url.protocol === 'data:' && inlineSvgData(url) !== null)) &&
-				!group.some((item) => item.href === url.href)
-			) {
+					(url.protocol === 'data:' && inlineSvgData(url) !== null));
+			if (validDeclaration && !group.some((item) => item.href === url.href)) {
 				group.push(url);
+			}
+
+			const baseHref = $(element).attr('data-base-href');
+			const extension = url.pathname.match(/(\.[^./]+)$/)?.[1];
+			if (!validDeclaration || !baseHref || !extension) return;
+			const darkUrl = new URL(baseHref, pageUrl);
+			darkUrl.pathname = `${darkUrl.pathname}-dark${extension}`;
+			if (
+				['http:', 'https:'].includes(darkUrl.protocol) &&
+				!derivedDark.some((item) => item.href === darkUrl.href)
+			) {
+				derivedDark.push(darkUrl);
 			}
 		} catch {
 			// Ignore malformed icon links and continue with other candidates.
 		}
 	});
+	groups.dark.push(
+		...derivedDark.filter((url) => !groups.dark.some((item) => item.href === url.href))
+	);
 	return groups;
 }
 
