@@ -21,7 +21,11 @@
 <div class="bg-background text-foreground min-h-screen">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-6 flex items-center gap-3">
-			<a href="/admin" class={buttonVariants({ variant: 'ghost', size: 'icon' })} aria-label="Back">
+			<a
+				href="/admin?tab=websites"
+				class={buttonVariants({ variant: 'ghost', size: 'icon' })}
+				aria-label="Back"
+			>
 				<ArrowLeft class="size-4" />
 			</a>
 			<h1 class="text-lg font-semibold">{data.isEdit ? 'Edit website' : 'Add website'}</h1>
@@ -90,19 +94,9 @@
 				<Form.FieldErrors />
 			</Form.Field>
 
-			<Form.Field {form} name="sortOrder">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Sort order</Form.Label>
-						<Input {...props} type="number" bind:value={$formData.sortOrder} />
-					{/snippet}
-				</Form.Control>
-				<Form.FieldErrors />
-			</Form.Field>
-
 			<div class="flex gap-2">
 				<Form.Button>{data.isEdit ? 'Save' : 'Create'}</Form.Button>
-				<a href="/admin" class={buttonVariants({ variant: 'outline' })}>Cancel</a>
+				<a href="/admin?tab=websites" class={buttonVariants({ variant: 'outline' })}>Cancel</a>
 			</div>
 		</form>
 	</main>

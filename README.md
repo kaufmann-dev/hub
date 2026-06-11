@@ -23,7 +23,7 @@ area for editing everything.
 - **Websites** — personal/third-party links with derived favicons and, when configured, an
   imprint link to `legal.kaufmann.dev/imprint?site=<domain>`.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
-  per-project overrides (hide, custom description, sort order).
+  per-project overrides (hide, custom description) and admin drag ordering.
 - **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, project
   overrides, and a "Sync now" button.
 

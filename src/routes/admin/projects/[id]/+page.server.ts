@@ -43,11 +43,10 @@ export const actions: Actions = {
 			.update(githubProject)
 			.set({
 				descriptionOverride: form.data.descriptionOverride ?? null,
-				hidden: form.data.hidden,
-				sortOrder: form.data.sortOrder
+				hidden: form.data.hidden
 			})
 			.where(eq(githubProject.id, id));
 
-		redirect(303, '/admin');
+		redirect(303, '/admin?tab=projects');
 	}
 };

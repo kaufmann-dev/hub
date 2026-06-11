@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
@@ -12,6 +12,15 @@ function parseId(raw: string | undefined): number | null {
 	const id = Number(raw);
 	if (!Number.isInteger(id) || id <= 0) return null;
 	return id;
+}
+
+async function nextSortOrder(): Promise<number> {
+	const [last] = await db
+		.select({ sortOrder: website.sortOrder })
+		.from(website)
+		.orderBy(desc(website.sortOrder))
+		.limit(1);
+	return (last?.sortOrder ?? -1) + 1;
 }
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -52,13 +61,11 @@ export const actions: Actions = {
 			url: form.data.url,
 			description: form.data.description ?? null,
 			iconUrl: form.data.iconUrl ?? null,
-			kind: form.data.kind,
-
-			sortOrder: form.data.sortOrder
+			kind: form.data.kind
 		};
 
 		if (id === null) {
-			await db.insert(website).values(values);
+			await db.insert(website).values({ ...values, sortOrder: await nextSortOrder() });
 		} else {
 			await db
 				.update(website)
@@ -66,6 +73,6 @@ export const actions: Actions = {
 				.where(eq(website.id, id));
 		}
 
-		redirect(303, '/admin');
+		redirect(303, '/admin?tab=websites');
 	}
 };

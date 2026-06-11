@@ -142,7 +142,11 @@
 <div class="bg-background text-foreground min-h-screen">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-6 flex items-center gap-3">
-			<a href="/admin" class={buttonVariants({ variant: 'ghost', size: 'icon' })} aria-label="Back">
+			<a
+				href="/admin?tab=cities"
+				class={buttonVariants({ variant: 'ghost', size: 'icon' })}
+				aria-label="Back"
+			>
 				<ArrowLeft class="size-4" />
 			</a>
 			<h1 class="text-lg font-semibold">{data.isEdit ? 'Edit city' : 'Add city'}</h1>
@@ -222,19 +226,9 @@
 			<input type="hidden" name="latitude" value={hiddenNumberValue($formData.latitude)} />
 			<input type="hidden" name="longitude" value={hiddenNumberValue($formData.longitude)} />
 
-			<Form.Field {form} name="sortOrder">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Sort order</Form.Label>
-						<Input {...props} type="number" bind:value={$formData.sortOrder} />
-					{/snippet}
-				</Form.Control>
-				<Form.FieldErrors />
-			</Form.Field>
-
 			<div class="flex gap-2">
 				<Form.Button disabled={!hasCityDetails}>{data.isEdit ? 'Save' : 'Create'}</Form.Button>
-				<a href="/admin" class={buttonVariants({ variant: 'outline' })}>Cancel</a>
+				<a href="/admin?tab=cities" class={buttonVariants({ variant: 'outline' })}>Cancel</a>
 			</div>
 		</form>
 	</main>

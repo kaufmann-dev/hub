@@ -1,5 +1,5 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
@@ -12,6 +12,15 @@ function parseId(raw: string | undefined): number | null {
 	const id = Number(raw);
 	if (!Number.isInteger(id) || id <= 0) return null;
 	return id;
+}
+
+async function nextSortOrder(): Promise<number> {
+	const [last] = await db
+		.select({ sortOrder: city.sortOrder })
+		.from(city)
+		.orderBy(desc(city.sortOrder))
+		.limit(1);
+	return (last?.sortOrder ?? -1) + 1;
 }
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -49,16 +58,15 @@ export const actions: Actions = {
 			name: form.data.name,
 			timezone: form.data.timezone,
 			latitude: form.data.latitude,
-			longitude: form.data.longitude,
-			sortOrder: form.data.sortOrder
+			longitude: form.data.longitude
 		};
 
 		if (id === null) {
-			await db.insert(city).values(values);
+			await db.insert(city).values({ ...values, sortOrder: await nextSortOrder() });
 		} else {
 			await db.update(city).set(values).where(eq(city.id, id));
 		}
 
-		redirect(303, '/admin');
+		redirect(303, '/admin?tab=cities');
 	}
 };
