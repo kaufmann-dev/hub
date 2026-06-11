@@ -91,20 +91,6 @@
 				<Form.FieldErrors />
 			</Form.Field>
 
-			<Form.Field {form} name="iconUrl">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Icon URL (optional)</Form.Label>
-						<Input
-							{...props}
-							placeholder="Leave empty to use the site favicon"
-							bind:value={$formData.iconUrl}
-						/>
-					{/snippet}
-				</Form.Control>
-				<Form.FieldErrors />
-			</Form.Field>
-
 			<div class="flex gap-2">
 				<Form.Button>{data.isEdit ? 'Save' : 'Create'}</Form.Button>
 				<a href="/admin?tab=websites" class={buttonVariants({ variant: 'outline' })}>Cancel</a>

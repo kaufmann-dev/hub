@@ -1,18 +1,34 @@
 <script lang="ts">
 	import { ExternalLink } from '@lucide/svelte';
 
-	let { src }: { src: string } = $props();
-	let failedSrc = $state<string | null>(null);
+	let { lightSrc, darkSrc }: { lightSrc: string; darkSrc: string } = $props();
+	let failed = $state.raw<string[]>([]);
+
+	function markFailed(src: string) {
+		failed = [...failed, src];
+	}
 </script>
 
-{#if failedSrc === src}
-	<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
+{#if failed.includes(lightSrc)}
+	<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0 dark:hidden" />
 {:else}
 	<img
-		{src}
+		src={lightSrc}
 		alt=""
-		class="mt-0.5 size-6 shrink-0 rounded"
+		class="mt-0.5 size-6 shrink-0 rounded dark:hidden"
 		loading="lazy"
-		onerror={() => (failedSrc = src)}
+		onerror={() => markFailed(lightSrc)}
+	/>
+{/if}
+
+{#if failed.includes(darkSrc)}
+	<ExternalLink class="text-muted-foreground mt-0.5 hidden size-6 shrink-0 dark:block" />
+{:else}
+	<img
+		src={darkSrc}
+		alt=""
+		class="mt-0.5 hidden size-6 shrink-0 rounded dark:block"
+		loading="lazy"
+		onerror={() => markFailed(darkSrc)}
 	/>
 {/if}

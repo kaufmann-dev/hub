@@ -30,6 +30,8 @@
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
 	let syncStatus = $state<{ ok: boolean; message: string } | null>(null);
+	let refreshingFavicons = $state(false);
+	let faviconStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
 	let dragging = $state<{ type: AdminTab; id: number } | null>(null);
@@ -288,7 +290,41 @@
 
 			<!-- Websites -->
 			<Tabs.Content value="websites" class="space-y-3">
-				<div class="flex justify-end">
+				<div class="flex items-center justify-end gap-3">
+					{#if faviconStatus}
+						<span
+							class={['text-sm', faviconStatus.ok ? 'text-muted-foreground' : 'text-destructive']}
+						>
+							{faviconStatus.message}
+						</span>
+					{/if}
+					<form
+						method="POST"
+						action="?/refreshFavicons"
+						use:enhance={() => {
+							refreshingFavicons = true;
+							faviconStatus = null;
+							return async ({ result, update }) => {
+								if (result.type === 'success') {
+									const refreshed = (result.data?.refreshed as number | undefined) ?? 0;
+									const failed = (result.data?.failed as number | undefined) ?? 0;
+									faviconStatus = {
+										ok: failed === 0,
+										message: `Refreshed ${refreshed} icons${failed ? `; ${failed} failed.` : '.'}`
+									};
+								} else {
+									faviconStatus = { ok: false, message: 'Icon refresh failed.' };
+								}
+								await update();
+								refreshingFavicons = false;
+							};
+						}}
+					>
+						<Button type="submit" variant="outline" size="sm" disabled={refreshingFavicons}>
+							<RefreshCw class={['size-4', refreshingFavicons && 'animate-spin']} />
+							{refreshingFavicons ? 'Refreshing…' : 'Refresh icons'}
+						</Button>
+					</form>
 					<a href="/admin/websites" class={buttonVariants({ size: 'sm' })}>
 						<Plus class="size-4" /> Add website
 					</a>

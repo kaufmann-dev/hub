@@ -17,6 +17,8 @@ const inFlight = new Map<number, Promise<boolean>>();
 
 type Fetcher = typeof fetch;
 type UrlValidator = (url: URL) => Promise<void>;
+type Icon = { data: Buffer; contentType: string; sourceUrl: string };
+type CandidateGroups = { light: URL[]; dark: URL[]; unqualified: URL[] };
 
 export function isPrivateIp(address: string): boolean {
 	const normalized = address.toLowerCase().replace(/^::ffff:/, '');
@@ -147,9 +149,9 @@ function inlineSvgData(url: URL): Buffer | null {
 	}
 }
 
-export function faviconCandidates(html: string, pageUrl: URL): URL[] {
+export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 	const $ = cheerio.load(html);
-	const urls: URL[] = [];
+	const groups: CandidateGroups = { light: [], dark: [], unqualified: [] };
 	$('link[href]').each((_index, element) => {
 		const rel = ($(element).attr('rel') ?? '').toLowerCase().split(/\s+/);
 		if (!rel.some((value) => value === 'icon' || value === 'apple-touch-icon')) return;
@@ -157,18 +159,29 @@ export function faviconCandidates(html: string, pageUrl: URL): URL[] {
 		if (!href) return;
 		try {
 			const url = new URL(href, pageUrl);
+			const media = ($(element).attr('media') ?? '').toLowerCase();
+			const group = media.includes('prefers-color-scheme')
+				? media.includes('dark')
+					? groups.dark
+					: media.includes('light')
+						? groups.light
+						: null
+				: media
+					? null
+					: groups.unqualified;
 			if (
+				group &&
 				(['http:', 'https:'].includes(url.protocol) ||
 					(url.protocol === 'data:' && inlineSvgData(url) !== null)) &&
-				!urls.some((item) => item.href === url.href)
+				!group.some((item) => item.href === url.href)
 			) {
-				urls.push(url);
+				group.push(url);
 			}
 		} catch {
 			// Ignore malformed icon links and continue with other candidates.
 		}
 	});
-	return urls;
+	return groups;
 }
 
 function directCandidates(pageUrl: URL): URL[] {
@@ -186,22 +199,29 @@ async function firstUsableCandidate(
 	candidates: URL[],
 	pageSourceUrl: string,
 	fetcher: Fetcher,
-	validateUrl: UrlValidator
-): Promise<{ data: Buffer; contentType: string; sourceUrl: string } | null> {
+	validateUrl: UrlValidator,
+	downloads: Map<string, Promise<Icon | null>>
+): Promise<Icon | null> {
 	for (const candidate of candidates) {
-		if (candidate.protocol === 'data:') {
-			const data = inlineSvgData(candidate);
-			if (data) return { data, contentType: 'image/svg+xml', sourceUrl: pageSourceUrl };
-			continue;
+		let download = downloads.get(candidate.href);
+		if (!download) {
+			download = (async () => {
+				if (candidate.protocol === 'data:') {
+					const data = inlineSvgData(candidate);
+					return data ? { data, contentType: 'image/svg+xml', sourceUrl: pageSourceUrl } : null;
+				}
+				try {
+					const icon = await safeFetch(candidate, MAX_ICON_BYTES, fetcher, validateUrl);
+					const contentType = normalizedImageType(icon.response, icon.data);
+					return contentType ? { data: icon.data, contentType, sourceUrl: candidate.href } : null;
+				} catch {
+					return null;
+				}
+			})();
+			downloads.set(candidate.href, download);
 		}
-
-		try {
-			const icon = await safeFetch(candidate, MAX_ICON_BYTES, fetcher, validateUrl);
-			const contentType = normalizedImageType(icon.response, icon.data);
-			if (contentType) return { data: icon.data, contentType, sourceUrl: candidate.href };
-		} catch {
-			// Continue through the current discovery stage.
-		}
+		const icon = await download;
+		if (icon) return icon;
 	}
 	return null;
 }
@@ -210,14 +230,17 @@ export async function discoverFavicon(
 	url: string,
 	fetcher: Fetcher = fetch,
 	validateUrl: UrlValidator = assertPublicUrl
-): Promise<{
-	data: Buffer;
-	contentType: string;
-	sourceUrl: string;
-}> {
+): Promise<
+	Icon & {
+		darkData: Buffer | null;
+		darkContentType: string | null;
+		darkSourceUrl: string | null;
+	}
+> {
 	const pageUrl = new URL(url);
 	let effectivePageUrl = pageUrl;
-	let declaredCandidates: URL[] = [];
+	let declaredCandidates: CandidateGroups = { light: [], dark: [], unqualified: [] };
+	const downloads = new Map<string, Promise<Icon | null>>();
 
 	try {
 		const page = await safeFetch(pageUrl, MAX_HTML_BYTES, fetcher, validateUrl);
@@ -230,31 +253,35 @@ export async function discoverFavicon(
 		// A blocked or unavailable homepage must not prevent fallback discovery.
 	}
 
-	const declared = await firstUsableCandidate(
-		declaredCandidates,
+	const sharedFallbacks = [
+		...declaredCandidates.unqualified,
+		...directCandidates(effectivePageUrl),
+		...providerCandidates(effectivePageUrl)
+	];
+	const light = await firstUsableCandidate(
+		[...declaredCandidates.light, ...sharedFallbacks],
 		effectivePageUrl.href,
 		fetcher,
-		validateUrl
+		validateUrl,
+		downloads
 	);
-	if (declared) return declared;
+	if (!light) throw new Error('No usable favicon found');
 
-	const direct = await firstUsableCandidate(
-		directCandidates(effectivePageUrl),
+	const dark = await firstUsableCandidate(
+		[...declaredCandidates.dark, ...sharedFallbacks],
 		effectivePageUrl.href,
 		fetcher,
-		validateUrl
+		validateUrl,
+		downloads
 	);
-	if (direct) return direct;
+	const distinctDark = dark && !dark.data.equals(light.data) ? dark : null;
 
-	const provider = await firstUsableCandidate(
-		providerCandidates(effectivePageUrl),
-		effectivePageUrl.href,
-		fetcher,
-		validateUrl
-	);
-	if (provider) return provider;
-
-	throw new Error('No usable favicon found');
+	return {
+		...light,
+		darkData: distinctDark?.data ?? null,
+		darkContentType: distinctDark?.contentType ?? null,
+		darkSourceUrl: distinctDark?.sourceUrl ?? null
+	};
 }
 
 async function recordFailure(websiteId: number): Promise<void> {
@@ -299,7 +326,6 @@ export async function refreshStaleFavicons(maxAgeMs: number): Promise<void> {
 		.select({
 			id: website.id,
 			url: website.url,
-			iconUrl: website.iconUrl,
 			data: websiteFavicon.data,
 			checkedAt: websiteFavicon.checkedAt
 		})
@@ -308,7 +334,6 @@ export async function refreshStaleFavicons(maxAgeMs: number): Promise<void> {
 		.orderBy(asc(website.id));
 
 	for (const row of rows) {
-		if (row.iconUrl) continue;
 		const retryAge = row.data ? maxAgeMs : MISSING_RETRY_MS;
 		if (!row.checkedAt || Date.now() - row.checkedAt.getTime() > retryAge) {
 			void refreshWebsiteFavicon(row.id, row.url);
@@ -316,6 +341,24 @@ export async function refreshStaleFavicons(maxAgeMs: number): Promise<void> {
 	}
 }
 
-export async function clearWebsiteFavicon(websiteId: number): Promise<void> {
-	await db.delete(websiteFavicon).where(eq(websiteFavicon.websiteId, websiteId));
+/** Refresh every website with at most four active discoveries. */
+export async function refreshAllWebsiteFavicons(): Promise<{ refreshed: number; failed: number }> {
+	const rows = await db
+		.select({ id: website.id, url: website.url })
+		.from(website)
+		.orderBy(asc(website.id));
+	let nextIndex = 0;
+	let refreshed = 0;
+	let failed = 0;
+
+	async function worker() {
+		while (nextIndex < rows.length) {
+			const row = rows[nextIndex++];
+			if (await refreshWebsiteFavicon(row.id, row.url)) refreshed += 1;
+			else failed += 1;
+		}
+	}
+
+	await Promise.all(Array.from({ length: Math.min(4, rows.length) }, () => worker()));
+	return { refreshed, failed };
 }

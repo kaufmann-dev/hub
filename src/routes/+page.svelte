@@ -4,7 +4,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
 	import { clock } from '$lib/clock.svelte';
-	import { faviconFor } from '$lib/favicon';
+	import { faviconUrls } from '$lib/favicon';
 	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
 	import GithubMark from '$lib/components/hub/GithubMark.svelte';
 	import WebsiteIcon from '$lib/components/hub/WebsiteIcon.svelte';
@@ -141,7 +141,7 @@
 					</h2>
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
-							{@const favicon = faviconFor(site.id, site.iconUrl)}
+							{@const favicon = faviconUrls(site.id, site.faviconCheckedAt)}
 							<div
 								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
 							>
@@ -151,7 +151,7 @@
 									rel="noopener noreferrer"
 									class="flex items-start gap-3"
 								>
-									<WebsiteIcon src={favicon} />
+									<WebsiteIcon lightSrc={favicon.light} darkSrc={favicon.dark} />
 									<span class="min-w-0 flex-1">
 										<span class="flex items-center gap-1.5 font-medium">
 											{site.title}

@@ -19,8 +19,6 @@ export const website = pgTable('website', {
 	title: text('title').notNull(),
 	url: text('url').notNull(),
 	description: text('description'),
-	/** Optional explicit icon URL; otherwise a favicon is derived from the domain. */
-	iconUrl: text('icon_url'),
 	/** 'personal' | 'third_party' */
 	kind: text('kind').notNull().default('personal'),
 
@@ -37,6 +35,9 @@ export const websiteFavicon = pgTable('website_favicon', {
 	data: bytea('data'),
 	contentType: text('content_type'),
 	sourceUrl: text('source_url'),
+	darkData: bytea('dark_data'),
+	darkContentType: text('dark_content_type'),
+	darkSourceUrl: text('dark_source_url'),
 	checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow()
 });
 

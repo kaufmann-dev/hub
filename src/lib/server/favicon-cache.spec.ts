@@ -73,6 +73,57 @@ describe('favicon cache refresh', () => {
 		});
 	});
 
+	it('stores distinct light and dark variants', async () => {
+		const light = Buffer.from('89504e470d0a1a0a', 'hex');
+		const dark = Buffer.from('474946383961', 'hex');
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: URL | RequestInfo) => {
+				const url = String(input);
+				if (url === 'https://example.com/') {
+					return new Response(
+						`
+						<link rel="icon" href="/light.png" media="(prefers-color-scheme: light)">
+						<link rel="icon" href="/dark.gif" media="(prefers-color-scheme: dark)">
+					`,
+						{ headers: { 'content-type': 'text/html' } }
+					);
+				}
+				return new Response(url.endsWith('/dark.gif') ? dark : light);
+			})
+		);
+
+		await expect(refreshWebsiteFavicon(104, 'https://example.com/')).resolves.toBe(true);
+
+		expect(mock.writes[0]?.set).toMatchObject({
+			data: light,
+			darkData: dark,
+			darkContentType: 'image/gif'
+		});
+	});
+
+	it('clears obsolete dark data after a successful single-variant refresh', async () => {
+		const png = Buffer.from('89504e470d0a1a0a', 'hex');
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (input: URL | RequestInfo) =>
+				String(input) === 'https://example.com/'
+					? new Response('<link rel="icon" href="/same.png">', {
+							headers: { 'content-type': 'text/html' }
+						})
+					: new Response(png)
+			)
+		);
+
+		await expect(refreshWebsiteFavicon(105, 'https://example.com/')).resolves.toBe(true);
+
+		expect(mock.writes[0]?.set).toMatchObject({
+			darkData: null,
+			darkContentType: null,
+			darkSourceUrl: null
+		});
+	});
+
 	it('records only the check time when refresh fails, preserving any existing bytes', async () => {
 		await expect(refreshWebsiteFavicon(102, 'http://localhost/')).resolves.toBe(false);
 

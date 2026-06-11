@@ -5,7 +5,7 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
 import { website } from '$lib/server/db/schema';
 import { websiteSchema } from '$lib/schemas';
-import { clearWebsiteFavicon, refreshWebsiteFavicon } from '$lib/server/favicon';
+import { refreshWebsiteFavicon } from '$lib/server/favicon';
 import type { Actions, PageServerLoad } from './$types';
 
 function parseId(raw: string | undefined): number | null {
@@ -40,7 +40,6 @@ export const load: PageServerLoad = async ({ params }) => {
 			title: row.title,
 			url: row.url,
 			description: row.description ?? undefined,
-			iconUrl: row.iconUrl ?? undefined,
 			kind: row.kind as 'personal' | 'third_party',
 
 			sortOrder: row.sortOrder
@@ -61,7 +60,6 @@ export const actions: Actions = {
 			title: form.data.title,
 			url: form.data.url,
 			description: form.data.description ?? null,
-			iconUrl: form.data.iconUrl ?? null,
 			kind: form.data.kind
 		};
 
@@ -70,14 +68,10 @@ export const actions: Actions = {
 				.insert(website)
 				.values({ ...values, sortOrder: await nextSortOrder() })
 				.returning({ id: website.id });
-			if (values.iconUrl) {
-				await clearWebsiteFavicon(created.id);
-			} else {
-				await refreshWebsiteFavicon(created.id, values.url);
-			}
+			await refreshWebsiteFavicon(created.id, values.url);
 		} else {
 			const [existing] = await db
-				.select({ url: website.url, iconUrl: website.iconUrl })
+				.select({ url: website.url })
 				.from(website)
 				.where(eq(website.id, id));
 			if (!existing) error(404, 'Website not found');
@@ -85,10 +79,7 @@ export const actions: Actions = {
 				.update(website)
 				.set({ ...values, updatedAt: new Date() })
 				.where(eq(website.id, id));
-			if (values.iconUrl) {
-				await clearWebsiteFavicon(id);
-			} else if (existing.url !== values.url || existing.iconUrl) {
-				await clearWebsiteFavicon(id);
+			if (existing.url !== values.url) {
 				await refreshWebsiteFavicon(id, values.url);
 			}
 		}

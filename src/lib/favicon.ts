@@ -1,4 +1,11 @@
-/** Resolve an explicit override or the hub-owned cached favicon endpoint. */
-export function faviconFor(websiteId: number, iconUrl?: string | null): string {
-	return iconUrl || `/websites/${websiteId}/favicon`;
+/** Resolve cache-versioned hub-owned favicon endpoints for both themes. */
+export function faviconUrls(
+	websiteId: number,
+	checkedAt?: Date | string | null
+): { light: string; dark: string } {
+	const version = checkedAt ? `&v=${encodeURIComponent(new Date(checkedAt).toISOString())}` : '';
+	return {
+		light: `/websites/${websiteId}/favicon?theme=light${version}`,
+		dark: `/websites/${websiteId}/favicon?theme=dark${version}`
+	};
 }

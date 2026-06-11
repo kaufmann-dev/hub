@@ -1,6 +1,6 @@
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, getTableColumns } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { website, githubProject, city } from '$lib/server/db/schema';
+import { website, websiteFavicon, githubProject, city } from '$lib/server/db/schema';
 import { getWeather } from '$lib/server/weather';
 import { syncIfStale } from '$lib/server/github';
 import { refreshStaleFavicons } from '$lib/server/favicon';
@@ -17,7 +17,11 @@ export const load: PageServerLoad = async () => {
 	);
 
 	const [websites, projects, cities] = await Promise.all([
-		db.select().from(website).orderBy(asc(website.sortOrder), asc(website.title)),
+		db
+			.select({ ...getTableColumns(website), faviconCheckedAt: websiteFavicon.checkedAt })
+			.from(website)
+			.leftJoin(websiteFavicon, eq(website.id, websiteFavicon.websiteId))
+			.orderBy(asc(website.sortOrder), asc(website.title)),
 		db
 			.select()
 			.from(githubProject)

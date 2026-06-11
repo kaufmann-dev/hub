@@ -3,6 +3,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { website, githubProject, city } from '$lib/server/db/schema';
 import { syncGithubProjects } from '$lib/server/github';
+import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
 import { SESSION_COOKIE } from '$lib/server/auth';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -72,6 +73,12 @@ export const actions: Actions = {
 			console.error('GitHub sync error:', err);
 			return fail(502, { syncFailed: true });
 		}
+	},
+
+	refreshFavicons: async ({ locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const counts = await refreshAllWebsiteFavicons();
+		return { success: true, ...counts };
 	},
 
 	logout: async ({ cookies, locals }) => {

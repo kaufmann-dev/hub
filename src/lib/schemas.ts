@@ -15,7 +15,6 @@ export const websiteSchema = z.object({
 	title: z.string().trim().min(1, 'Title is required'),
 	url: z.url('Must be a valid URL'),
 	description: optionalText,
-	iconUrl: optionalText.pipe(z.url('Must be a valid URL').optional()),
 	kind: z.enum(['personal', 'third_party']).default('personal'),
 	sortOrder: z.coerce.number().int().default(0)
 });

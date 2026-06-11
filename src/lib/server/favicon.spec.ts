@@ -14,7 +14,7 @@ describe('favicon discovery', () => {
 			new URL('https://example.com/path/')
 		);
 
-		expect(candidates.map(String)).toEqual([
+		expect(candidates.unqualified.map(String)).toEqual([
 			'https://example.com/path/static/favicon.svg',
 			'https://example.com/touch.png'
 		]);
@@ -30,7 +30,7 @@ describe('favicon discovery', () => {
 			new URL('https://example.com/page')
 		);
 
-		expect(candidates.map(String)).toEqual([urlEncoded, base64]);
+		expect(candidates.unqualified.map(String)).toEqual([urlEncoded, base64]);
 	});
 
 	it('rejects malformed, non-SVG, and oversized inline icon data', () => {
@@ -45,7 +45,7 @@ describe('favicon discovery', () => {
 			new URL('https://example.com/')
 		);
 
-		expect(candidates).toEqual([]);
+		expect(candidates).toEqual({ light: [], dark: [], unqualified: [] });
 	});
 
 	it('stores decoded inline SVG bytes with the website page as the source', async () => {
@@ -65,7 +65,10 @@ describe('favicon discovery', () => {
 		expect(result).toEqual({
 			data: Buffer.from(svg),
 			contentType: 'image/svg+xml',
-			sourceUrl: 'https://example.com/page'
+			sourceUrl: 'https://example.com/page',
+			darkData: null,
+			darkContentType: null,
+			darkSourceUrl: null
 		});
 		expect(fetcher).toHaveBeenCalledTimes(1);
 	});
@@ -102,6 +105,80 @@ describe('favicon discovery', () => {
 
 		expect(result.contentType).toBe('image/svg+xml');
 		expect(result.sourceUrl).toBe('https://example.com/favicon.svg');
+		expect(fetcher).toHaveBeenCalledTimes(2);
+	});
+
+	it('prefers explicit light and dark declarations for their matching themes', async () => {
+		const light = Buffer.from('89504e470d0a1a0a', 'hex');
+		const dark = Buffer.from('474946383961', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/') {
+				return new Response(
+					`
+					<link rel="icon" href="/default.ico">
+					<link rel="icon" href="/light.png" media="(prefers-color-scheme: light)">
+					<link rel="icon" href="/dark.gif" media="(prefers-color-scheme: dark)">
+				`,
+					{ headers: { 'content-type': 'text/html' } }
+				);
+			}
+			if (url.endsWith('/light.png')) return new Response(light);
+			if (url.endsWith('/dark.gif')) return new Response(dark);
+			return new Response('missing', { status: 404 });
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result).toMatchObject({
+			data: light,
+			sourceUrl: 'https://example.com/light.png',
+			darkData: dark,
+			darkSourceUrl: 'https://example.com/dark.gif'
+		});
+		expect(fetcher).toHaveBeenCalledTimes(3);
+	});
+
+	it('uses an unqualified icon when one explicit variant is missing', async () => {
+		const shared = Buffer.from('89504e470d0a1a0a', 'hex');
+		const dark = Buffer.from('474946383961', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/') {
+				return new Response(
+					`
+					<link rel="icon" href="/shared.png">
+					<link rel="icon" href="/dark.gif" media="(prefers-color-scheme: dark)">
+				`,
+					{ headers: { 'content-type': 'text/html' } }
+				);
+			}
+			return new Response(url.endsWith('/dark.gif') ? dark : shared);
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.data).toEqual(shared);
+		expect(result.darkData).toEqual(dark);
+	});
+
+	it('downloads duplicate theme candidates only once and deduplicates identical variants', async () => {
+		const png = Buffer.from('89504e470d0a1a0a', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) =>
+			String(input) === 'https://example.com/'
+				? new Response(
+						`
+						<link rel="icon" href="/same.png" media="(prefers-color-scheme: light)">
+						<link rel="icon" href="/same.png" media="(prefers-color-scheme: dark)">
+					`,
+						{ headers: { 'content-type': 'text/html' } }
+					)
+				: new Response(png)
+		);
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.darkData).toBeNull();
 		expect(fetcher).toHaveBeenCalledTimes(2);
 	});
 

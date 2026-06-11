@@ -20,12 +20,12 @@ area for editing everything.
   you type. Press `/` to focus it.
 - **Clocks & weather** — one card per city with a live clock (its IANA timezone) and current
   weather from Open-Meteo. Cities are editable in the database.
-- **Websites** — personal/third-party links with discovered, locally cached favicons and optional
-  explicit icon URL overrides.
+- **Websites** — personal/third-party links with automatically discovered, locally cached,
+  theme-aware favicons.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
 - **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, project
-  overrides, and a "Sync now" button.
+  overrides, bulk icon refresh, and a "Sync now" button.
 
 ## Environment
 
