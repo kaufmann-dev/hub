@@ -25,17 +25,21 @@ export async function getWeather(
 	c: Pick<City, 'id' | 'latitude' | 'longitude'>
 ): Promise<CityWeather | null> {
 	const cached = cache.get(c.id);
-	if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
+	// If cached, fresh, and not null, return it
+	if (cached && Date.now() - cached.at < CACHE_TTL_MS && cached.value !== null) {
+		return cached.value;
+	}
 
 	let value: CityWeather | null = null;
-	try {
-		const url = new URL('https://api.open-meteo.com/v1/forecast');
-		url.searchParams.set('latitude', String(c.latitude));
-		url.searchParams.set('longitude', String(c.longitude));
-		url.searchParams.set('current', 'temperature_2m,weather_code');
-		url.searchParams.set('timezone', 'auto');
+	const url = new URL('https://api.open-meteo.com/v1/forecast');
+	url.searchParams.set('latitude', String(c.latitude));
+	url.searchParams.set('longitude', String(c.longitude));
+	url.searchParams.set('current', 'temperature_2m,weather_code');
+	url.searchParams.set('timezone', 'auto');
 
-		const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+	try {
+		console.log(`[Weather] Fetching for city ${c.id} (${c.latitude}, ${c.longitude}): ${url.toString()}`);
+		const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 		if (res.ok) {
 			const data = (await res.json()) as {
 				current?: { temperature_2m?: number; weather_code?: number };
@@ -51,14 +55,24 @@ export async function getWeather(
 					label: info.label,
 					icon: info.icon
 				};
+				console.log(`[Weather] Successfully fetched for city ${c.id}: ${value.temperature}${value.unit}, ${value.label}`);
+				cache.set(c.id, { at: Date.now(), value });
+				return value;
+			} else {
+				console.warn(`[Weather] City ${c.id} response missing temp or code. Data:`, JSON.stringify(data));
 			}
 		} else {
-			console.error(`Weather fetch failed for city ${c.id}: ${res.status}`);
+			console.error(`[Weather] Fetch failed for city ${c.id} with status ${res.status}: ${res.statusText}`);
 		}
 	} catch (err) {
-		console.error(`Weather fetch error for city ${c.id}:`, err);
+		console.error(`[Weather] Error fetching for city ${c.id}:`, err);
 	}
 
-	cache.set(c.id, { at: Date.now(), value });
-	return value;
+	// If fetch failed, fallback to stale cached value if available, rather than returning null
+	if (cached && cached.value !== null) {
+		console.log(`[Weather] Returning stale cached weather for city ${c.id} as fallback.`);
+		return cached.value;
+	}
+
+	return null;
 }
