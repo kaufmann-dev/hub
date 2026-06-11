@@ -52,8 +52,13 @@ export const actions: Actions = {
 
 	syncNow: async ({ locals }) => {
 		if (!locals.isAdmin) return fail(403);
-		const count = await syncGithubProjects();
-		return { success: true, synced: count };
+		try {
+			const count = await syncGithubProjects();
+			return { success: true, synced: count };
+		} catch (err) {
+			console.error('GitHub sync error:', err);
+			return fail(502, { syncFailed: true });
+		}
 	},
 
 	logout: async ({ cookies, locals }) => {

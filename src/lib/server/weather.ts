@@ -35,7 +35,7 @@ export async function getWeather(
 		url.searchParams.set('current', 'temperature_2m,weather_code');
 		url.searchParams.set('timezone', 'auto');
 
-		const res = await fetch(url);
+		const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
 		if (res.ok) {
 			const data = (await res.json()) as {
 				current?: { temperature_2m?: number; weather_code?: number };

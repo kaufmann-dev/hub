@@ -91,8 +91,30 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5433/hub pnpm db:seed
 Set `ORIGIN`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and optionally `GITHUB_TOKEN` in your
 environment (or `.env`) before bringing the stack up.
 
-## Deployment (Coolify)
+## Coolify Deployment
 
-Build from the `Containerfile`. Provide the environment variables above; set `ORIGIN` to
-`https://hub.kaufmann.dev`. The container runs migrations (`scripts/migrate.mjs`) before
-starting the server, so the database schema is created/updated on deploy.
+Deployed via Coolify's **Nixpacks** build pack. Build command, start command, and the Node
+version live in `nixpacks.toml` and `package.json`; the settings below must be set in the
+Coolify UI.
+
+| Setting        | Value    |
+| -------------- | -------- |
+| Build Pack     | Nixpacks |
+| Base Directory | `/`      |
+
+Migrations run automatically on container start (`scripts/migrate.mjs`), so no pre/post
+deployment command is needed. The adapter-node server binds to the `PORT` Coolify injects.
+
+### Environment Variables
+
+Required:
+
+- `DATABASE_URL` — PostgreSQL connection string
+- `ORIGIN` — public origin required by adapter-node for form POST/CSRF; set to `https://hub.kaufmann.dev`
+- `ADMIN_PASSWORD` — password for `/admin`
+- `ADMIN_SESSION_SECRET` — secret signing the admin session cookie (`openssl rand -hex 32`)
+
+Optional:
+
+- `GITHUB_USERNAME` — GitHub account to sync (default `kaufmann-dev`)
+- `GITHUB_TOKEN` — raises the GitHub API rate limit; sync works without it

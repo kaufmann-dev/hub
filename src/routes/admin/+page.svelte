@@ -18,6 +18,7 @@
 
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
+	let syncStatus = $state<{ ok: boolean; message: string } | null>(null);
 </script>
 
 <svelte:head><title>Admin · Hub</title></svelte:head>
@@ -88,13 +89,25 @@
 
 			<!-- Projects -->
 			<Tabs.Content value="projects" class="space-y-3">
-				<div class="flex justify-end">
+				<div class="flex items-center justify-end gap-3">
+					{#if syncStatus}
+						<span class={['text-sm', syncStatus.ok ? 'text-muted-foreground' : 'text-destructive']}>
+							{syncStatus.message}
+						</span>
+					{/if}
 					<form
 						method="POST"
 						action="?/syncNow"
 						use:enhance={() => {
 							syncing = true;
-							return async ({ update }) => {
+							syncStatus = null;
+							return async ({ result, update }) => {
+								if (result.type === 'success') {
+									const synced = (result.data?.synced as number | undefined) ?? 0;
+									syncStatus = { ok: true, message: `Synced ${synced} projects.` };
+								} else if (result.type === 'failure') {
+									syncStatus = { ok: false, message: 'Sync failed. Check server logs.' };
+								}
 								await update();
 								syncing = false;
 							};

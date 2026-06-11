@@ -35,7 +35,8 @@ export async function projectsAreStale(maxAgeMs: number): Promise<boolean> {
 /**
  * Fetch the configured account's public repos and upsert them by GitHub repo id.
  * Synced fields are overwritten; user override fields are preserved.
- * Returns the number of repos processed. Best-effort: logs and returns 0 on failure.
+ * Returns the number of repos processed. Throws on any failure so callers can
+ * report it; concurrent calls share a single in-flight request.
  */
 export async function syncGithubProjects(): Promise<number> {
 	if (inFlight) return inFlight;
@@ -51,16 +52,14 @@ export async function syncGithubProjects(): Promise<number> {
 
 			const res = await fetch(
 				`https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`,
-				{ headers }
+				{ headers, signal: AbortSignal.timeout(10_000) }
 			);
 			if (!res.ok) {
-				console.error(`GitHub sync failed: ${res.status} ${res.statusText}`);
-				return 0;
+				throw new Error(`GitHub API responded ${res.status} ${res.statusText}`);
 			}
 
 			const repos = (await res.json()) as GithubRepo[];
 			const usable = repos.filter((r) => !r.fork && !r.archived);
-			if (usable.length === 0) return 0;
 
 			const now = new Date();
 			for (const r of usable) {
@@ -98,9 +97,6 @@ export async function syncGithubProjects(): Promise<number> {
 
 			lastSync = Date.now();
 			return usable.length;
-		} catch (err) {
-			console.error('GitHub sync error:', err);
-			return 0;
 		} finally {
 			inFlight = null;
 		}
@@ -113,6 +109,8 @@ export async function syncIfStale(maxAgeMs: number): Promise<void> {
 	// Cheap in-process throttle to avoid hammering the DB check on every request.
 	if (Date.now() - lastSync < Math.min(maxAgeMs, 60_000)) return;
 	if (await projectsAreStale(maxAgeMs)) {
-		void syncGithubProjects();
+		// Background best-effort: swallow and log failures so they don't become
+		// unhandled rejections. The explicit admin sync reports errors instead.
+		void syncGithubProjects().catch((err) => console.error('GitHub sync error:', err));
 	}
 }

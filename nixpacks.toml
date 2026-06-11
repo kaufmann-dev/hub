@@ -1,8 +1,8 @@
-[variables]
-NIXPACKS_NODE_VERSION = "22.12"
+# Node version comes from package.json `engines.node`.
 
 [phases.build]
-cmds = ["DATABASE_URL=postgres://placeholder:5432/placeholder pnpm build"]
+cmds = ["pnpm build"]
 
+# Apply Drizzle migrations, then start the adapter-node server (binds to $PORT).
 [start]
 cmd = "node scripts/migrate.mjs && node build"
