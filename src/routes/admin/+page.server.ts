@@ -50,6 +50,14 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
+	setAllProjectsHidden: async ({ request, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const form = await request.formData();
+		const hidden = form.get('hidden') === 'true';
+		await db.update(githubProject).set({ hidden });
+		return { success: true };
+	},
+
 	syncNow: async ({ locals }) => {
 		if (!locals.isAdmin) return fail(403);
 		try {

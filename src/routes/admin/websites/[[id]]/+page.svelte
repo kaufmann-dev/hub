@@ -76,23 +76,6 @@
 				<Form.FieldErrors />
 			</Form.Field>
 
-			<Form.Field {form} name="imprintSite">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Imprint site</Form.Label>
-						<Input
-							{...props}
-							placeholder="ensemblr.kaufmann.dev"
-							bind:value={$formData.imprintSite}
-						/>
-					{/snippet}
-				</Form.Control>
-				<Form.Description>
-					When set, an imprint link points to legal.kaufmann.dev/imprint?site=…
-				</Form.Description>
-				<Form.FieldErrors />
-			</Form.Field>
-
 			<Form.Field {form} name="iconUrl">
 				<Form.Control>
 					{#snippet children({ props })}

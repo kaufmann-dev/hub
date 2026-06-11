@@ -19,6 +19,7 @@
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
 	let syncStatus = $state<{ ok: boolean; message: string } | null>(null);
+	let allHidden = $derived(data.projects.every((p) => p.hidden));
 </script>
 
 <svelte:head><title>Admin · Hub</title></svelte:head>
@@ -95,6 +96,16 @@
 							{syncStatus.message}
 						</span>
 					{/if}
+					<form method="POST" action="?/setAllProjectsHidden" use:enhance>
+						<input type="hidden" name="hidden" value={(!allHidden).toString()} />
+						<Button type="submit" variant="outline" size="sm">
+							{#if allHidden}
+								<Eye class="size-4" /> Show all projects
+							{:else}
+								<EyeOff class="size-4" /> Hide all projects
+							{/if}
+						</Button>
+					</form>
 					<form
 						method="POST"
 						action="?/syncNow"

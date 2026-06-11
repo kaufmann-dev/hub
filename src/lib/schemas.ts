@@ -17,7 +17,6 @@ export const websiteSchema = z.object({
 	description: optionalText,
 	iconUrl: optionalText,
 	kind: z.enum(['personal', 'third_party']).default('personal'),
-	imprintSite: optionalText,
 	sortOrder: z.coerce.number().int().default(0)
 });
 export type WebsiteSchema = typeof websiteSchema;

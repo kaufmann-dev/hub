@@ -32,7 +32,7 @@ export const load: PageServerLoad = async ({ params }) => {
 			description: row.description ?? undefined,
 			iconUrl: row.iconUrl ?? undefined,
 			kind: row.kind as 'personal' | 'third_party',
-			imprintSite: row.imprintSite ?? undefined,
+
 			sortOrder: row.sortOrder
 		},
 		zod4(websiteSchema)
@@ -53,7 +53,7 @@ export const actions: Actions = {
 			description: form.data.description ?? null,
 			iconUrl: form.data.iconUrl ?? null,
 			kind: form.data.kind,
-			imprintSite: form.data.imprintSite ?? null,
+
 			sortOrder: form.data.sortOrder
 		};
 

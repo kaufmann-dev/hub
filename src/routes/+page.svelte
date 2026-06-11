@@ -231,7 +231,7 @@
 	<footer class="border-t">
 		<div class="mx-auto flex max-w-6xl items-center justify-center gap-4 px-4 py-6 text-sm">
 			<a
-				href="https://legal.kaufmann.dev/imprint"
+				href="https://legal.kaufmann.dev/imprint?site=hub.kaufmann.dev"
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-muted-foreground hover:text-foreground"
@@ -240,7 +240,7 @@
 			</a>
 			<span class="text-muted-foreground">·</span>
 			<a
-				href="https://legal.kaufmann.dev/privacy"
+				href="https://legal.kaufmann.dev/privacy?site=hub.kaufmann.dev"
 				target="_blank"
 				rel="noopener noreferrer"
 				class="text-muted-foreground hover:text-foreground"

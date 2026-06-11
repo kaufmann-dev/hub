@@ -50,15 +50,25 @@ export async function syncGithubProjects(): Promise<number> {
 			};
 			if (env.GITHUB_TOKEN) headers.Authorization = `Bearer ${env.GITHUB_TOKEN}`;
 
-			const res = await fetch(
-				`https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`,
-				{ headers, signal: AbortSignal.timeout(10_000) }
-			);
-			if (!res.ok) {
-				throw new Error(`GitHub API responded ${res.status} ${res.statusText}`);
+			const allRepos: GithubRepo[] = [];
+			let url: string | null =
+				`https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`;
+
+			while (url) {
+				const res: Response = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
+				if (!res.ok) {
+					throw new Error(`GitHub API responded ${res.status} ${res.statusText}`);
+				}
+				const page = (await res.json()) as GithubRepo[];
+				allRepos.push(...page);
+
+				// Follow pagination via Link header
+				const link = res.headers.get('Link');
+				const next = link?.match(/<([^>]+)>;\s*rel="next"/);
+				url = next ? next[1] : null;
 			}
 
-			const repos = (await res.json()) as GithubRepo[];
+			const repos = allRepos;
 			const usable = repos.filter((r) => !r.fork && !r.archived);
 
 			const now = new Date();

@@ -34,7 +34,6 @@ const websites = [
 	title: domain,
 	url: `https://${domain}`,
 	kind: 'personal' as const,
-	imprintSite: domain,
 	sortOrder: i
 }));
 
