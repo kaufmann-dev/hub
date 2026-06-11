@@ -94,8 +94,7 @@ async function safeFetch(
 function normalizedImageType(response: Response, data: Buffer): string | null {
 	const declared = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
 	if (declared === 'image/svg+xml') {
-		const start = data.subarray(0, 1024).toString('utf8').trimStart().toLowerCase();
-		return start.includes('<svg') ? declared : null;
+		return containsSvgMarkup(data) ? declared : null;
 	}
 	if (data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) return 'image/png';
 	if (data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg';
@@ -103,6 +102,49 @@ function normalizedImageType(response: Response, data: Buffer): string | null {
 	if (data.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
 	const signature = data.subarray(0, 4).toString('hex');
 	return signature === '00000100' || signature === '00000200' ? 'image/x-icon' : null;
+}
+
+function containsSvgMarkup(data: Buffer): boolean {
+	return /<svg(?:\s|>)/i.test(data.toString('utf8'));
+}
+
+function inlineSvgData(url: URL): Buffer | null {
+	if (url.protocol !== 'data:') return null;
+
+	const comma = url.href.indexOf(',');
+	if (comma === -1) return null;
+	const metadata = url.href.slice(5, comma).split(';');
+	if (metadata.shift()?.toLowerCase() !== 'image/svg+xml') return null;
+
+	let base64 = false;
+	for (const parameter of metadata) {
+		const normalized = parameter.toLowerCase();
+		if (normalized === 'base64' && !base64) {
+			base64 = true;
+		} else if (!/^charset=(?:utf-8|us-ascii)$/.test(normalized)) {
+			return null;
+		}
+	}
+
+	const encoded = url.href.slice(comma + 1);
+	try {
+		let data: Buffer;
+		if (base64) {
+			if (
+				encoded.length > Math.ceil((MAX_ICON_BYTES * 4) / 3) + 4 ||
+				!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)
+			) {
+				return null;
+			}
+			data = Buffer.from(encoded, 'base64');
+		} else {
+			if (encoded.length > MAX_ICON_BYTES * 3) return null;
+			data = Buffer.from(decodeURIComponent(encoded), 'utf8');
+		}
+		return data.byteLength <= MAX_ICON_BYTES && containsSvgMarkup(data) ? data : null;
+	} catch {
+		return null;
+	}
 }
 
 export function faviconCandidates(html: string, pageUrl: URL): URL[] {
@@ -116,7 +158,8 @@ export function faviconCandidates(html: string, pageUrl: URL): URL[] {
 		try {
 			const url = new URL(href, pageUrl);
 			if (
-				['http:', 'https:'].includes(url.protocol) &&
+				(['http:', 'https:'].includes(url.protocol) ||
+					(url.protocol === 'data:' && inlineSvgData(url) !== null)) &&
 				!urls.some((item) => item.href === url.href)
 			) {
 				urls.push(url);
@@ -125,9 +168,42 @@ export function faviconCandidates(html: string, pageUrl: URL): URL[] {
 			// Ignore malformed icon links and continue with other candidates.
 		}
 	});
-	const fallback = new URL('/favicon.ico', pageUrl);
-	if (!urls.some((item) => item.href === fallback.href)) urls.push(fallback);
 	return urls;
+}
+
+function directCandidates(pageUrl: URL): URL[] {
+	return [new URL('/favicon.ico', pageUrl), new URL('/favicon.svg', pageUrl)];
+}
+
+function providerCandidates(pageUrl: URL): URL[] {
+	const google = new URL('https://www.google.com/s2/favicons');
+	google.searchParams.set('domain_url', pageUrl.origin);
+	google.searchParams.set('sz', '128');
+	return [google, new URL(`https://icons.duckduckgo.com/ip3/${pageUrl.hostname}.ico`)];
+}
+
+async function firstUsableCandidate(
+	candidates: URL[],
+	pageSourceUrl: string,
+	fetcher: Fetcher,
+	validateUrl: UrlValidator
+): Promise<{ data: Buffer; contentType: string; sourceUrl: string } | null> {
+	for (const candidate of candidates) {
+		if (candidate.protocol === 'data:') {
+			const data = inlineSvgData(candidate);
+			if (data) return { data, contentType: 'image/svg+xml', sourceUrl: pageSourceUrl };
+			continue;
+		}
+
+		try {
+			const icon = await safeFetch(candidate, MAX_ICON_BYTES, fetcher, validateUrl);
+			const contentType = normalizedImageType(icon.response, icon.data);
+			if (contentType) return { data: icon.data, contentType, sourceUrl: candidate.href };
+		} catch {
+			// Continue through the current discovery stage.
+		}
+	}
+	return null;
 }
 
 export async function discoverFavicon(
@@ -140,21 +216,44 @@ export async function discoverFavicon(
 	sourceUrl: string;
 }> {
 	const pageUrl = new URL(url);
-	const page = await safeFetch(pageUrl, MAX_HTML_BYTES, fetcher, validateUrl);
-	const contentType = page.response.headers.get('content-type')?.toLowerCase() ?? '';
-	const candidates = contentType.includes('text/html')
-		? faviconCandidates(page.data.toString('utf8'), new URL(page.response.url || pageUrl))
-		: [new URL('/favicon.ico', pageUrl)];
+	let effectivePageUrl = pageUrl;
+	let declaredCandidates: URL[] = [];
 
-	for (const candidate of candidates) {
-		try {
-			const icon = await safeFetch(candidate, MAX_ICON_BYTES, fetcher, validateUrl);
-			const iconType = normalizedImageType(icon.response, icon.data);
-			if (iconType) return { data: icon.data, contentType: iconType, sourceUrl: candidate.href };
-		} catch {
-			// Continue until a declared icon or the conventional fallback works.
+	try {
+		const page = await safeFetch(pageUrl, MAX_HTML_BYTES, fetcher, validateUrl);
+		effectivePageUrl = new URL(page.response.url || pageUrl);
+		const contentType = page.response.headers.get('content-type')?.toLowerCase() ?? '';
+		if (contentType.includes('text/html')) {
+			declaredCandidates = faviconCandidates(page.data.toString('utf8'), effectivePageUrl);
 		}
+	} catch {
+		// A blocked or unavailable homepage must not prevent fallback discovery.
 	}
+
+	const declared = await firstUsableCandidate(
+		declaredCandidates,
+		effectivePageUrl.href,
+		fetcher,
+		validateUrl
+	);
+	if (declared) return declared;
+
+	const direct = await firstUsableCandidate(
+		directCandidates(effectivePageUrl),
+		effectivePageUrl.href,
+		fetcher,
+		validateUrl
+	);
+	if (direct) return direct;
+
+	const provider = await firstUsableCandidate(
+		providerCandidates(effectivePageUrl),
+		effectivePageUrl.href,
+		fetcher,
+		validateUrl
+	);
+	if (provider) return provider;
+
 	throw new Error('No usable favicon found');
 }
 

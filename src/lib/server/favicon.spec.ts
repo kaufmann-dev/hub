@@ -4,7 +4,7 @@ import { assertPublicUrl, discoverFavicon, faviconCandidates, isPrivateIp } from
 const allowUrl = async () => undefined;
 
 describe('favicon discovery', () => {
-	it('extracts declared icons, resolves relative URLs, and appends the conventional fallback', () => {
+	it('extracts declared icons and resolves relative URLs', () => {
 		const candidates = faviconCandidates(
 			`
 				<link rel="stylesheet" href="/styles.css">
@@ -16,9 +16,58 @@ describe('favicon discovery', () => {
 
 		expect(candidates.map(String)).toEqual([
 			'https://example.com/path/static/favicon.svg',
-			'https://example.com/touch.png',
-			'https://example.com/favicon.ico'
+			'https://example.com/touch.png'
 		]);
+	});
+
+	it('accepts URL-encoded and base64 inline SVG icons', () => {
+		const urlEncoded =
+			'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E';
+		const base64 = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>').toString('base64')}`;
+
+		const candidates = faviconCandidates(
+			`<link rel="icon" href="${urlEncoded}"><link rel="icon" href="${base64}">`,
+			new URL('https://example.com/page')
+		);
+
+		expect(candidates.map(String)).toEqual([urlEncoded, base64]);
+	});
+
+	it('rejects malformed, non-SVG, and oversized inline icon data', () => {
+		const oversized = `data:image/svg+xml,${encodeURIComponent(`<svg>${'a'.repeat(512_001)}</svg>`)}`;
+		const candidates = faviconCandidates(
+			`
+				<link rel="icon" href="data:image/svg+xml,%ZZ">
+				<link rel="icon" href="data:image/svg+xml;base64,not-valid!">
+				<link rel="icon" href="data:image/svg+xml,plain-text">
+				<link rel="icon" href="${oversized}">
+			`,
+			new URL('https://example.com/')
+		);
+
+		expect(candidates).toEqual([]);
+	});
+
+	it('stores decoded inline SVG bytes with the website page as the source', async () => {
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg"><circle r="4"/></svg>';
+		const fetcher = vi.fn(
+			async () =>
+				new Response(
+					`<link rel="icon" href="data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}">`,
+					{
+						headers: { 'content-type': 'text/html' }
+					}
+				)
+		);
+
+		const result = await discoverFavicon('https://example.com/page', fetcher, allowUrl);
+
+		expect(result).toEqual({
+			data: Buffer.from(svg),
+			contentType: 'image/svg+xml',
+			sourceUrl: 'https://example.com/page'
+		});
+		expect(fetcher).toHaveBeenCalledTimes(1);
 	});
 
 	it('downloads the first valid declared icon', async () => {
@@ -62,6 +111,79 @@ describe('favicon discovery', () => {
 		expect(result.sourceUrl).toBe('https://example.com/favicon.ico');
 	});
 
+	it('tries conventional origin paths when the homepage is blocked', async () => {
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/private/page')
+				return new Response('blocked', { status: 403 });
+			if (url === 'https://example.com/favicon.ico') {
+				return new Response(Buffer.from('000001000100', 'hex'), {
+					headers: { 'content-type': 'image/x-icon' }
+				});
+			}
+			return new Response('missing', { status: 404 });
+		});
+
+		const result = await discoverFavicon('https://example.com/private/page', fetcher, allowUrl);
+
+		expect(result.sourceUrl).toBe('https://example.com/favicon.ico');
+		expect(fetcher.mock.calls.map(([input]) => String(input))).toEqual([
+			'https://example.com/private/page',
+			'https://example.com/favicon.ico'
+		]);
+	});
+
+	it('uses providers only after declared and direct candidates fail', async () => {
+		const png = Buffer.from('89504e470d0a1a0a', 'hex');
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url === 'https://example.com/') {
+				return new Response('<link rel="icon" href="/declared.png">', {
+					headers: { 'content-type': 'text/html' }
+				});
+			}
+			if (url.startsWith('https://www.google.com/s2/favicons?')) {
+				return new Response(png, { headers: { 'content-type': 'image/png' } });
+			}
+			return new Response('missing', { status: 404 });
+		});
+
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+		const calls = fetcher.mock.calls.map(([input]) => String(input));
+
+		expect(calls.slice(0, 4)).toEqual([
+			'https://example.com/',
+			'https://example.com/declared.png',
+			'https://example.com/favicon.ico',
+			'https://example.com/favicon.svg'
+		]);
+		expect(calls[4]).toMatch(/^https:\/\/www\.google\.com\/s2\/favicons\?/);
+		expect(calls).toHaveLength(5);
+		expect(result.data).toEqual(png);
+		expect(result.contentType).toBe('image/png');
+		expect(result.sourceUrl).toBe(calls[4]);
+	});
+
+	it('rejects provider errors and non-image placeholders before trying the next provider', async () => {
+		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
+			const url = String(input);
+			if (url.startsWith('https://www.google.com/s2/favicons?')) {
+				return new Response('missing', { status: 404 });
+			}
+			if (url.startsWith('https://icons.duckduckgo.com/')) {
+				return new Response('placeholder', { headers: { 'content-type': 'image/png' } });
+			}
+			return new Response('missing', { status: 404 });
+		});
+
+		await expect(discoverFavicon('https://example.com/', fetcher, allowUrl)).rejects.toThrow(
+			'No usable favicon found'
+		);
+		expect(fetcher.mock.calls.map(([input]) => String(input)).at(-1)).toBe(
+			'https://icons.duckduckgo.com/ip3/example.com.ico'
+		);
+	});
+
 	it('recognizes binary icons served with a generic content type', async () => {
 		const fetcher = vi.fn(async (input: URL | RequestInfo) => {
 			if (String(input) === 'https://example.com/') {
@@ -79,17 +201,20 @@ describe('favicon discovery', () => {
 		expect(result.contentType).toBe('image/png');
 	});
 
-	it('rejects oversized responses before reading their body', async () => {
-		const fetcher = vi.fn(
-			async () =>
-				new Response('<html></html>', {
-					headers: { 'content-type': 'text/html', 'content-length': '1000001' }
-				})
+	it('continues discovery after an oversized homepage response', async () => {
+		const fetcher = vi.fn(async (input: URL | RequestInfo) =>
+			String(input) === 'https://example.com/'
+				? new Response('<html></html>', {
+						headers: { 'content-type': 'text/html', 'content-length': '1000001' }
+					})
+				: new Response(Buffer.from('000001000100', 'hex'), {
+						headers: { 'content-type': 'image/x-icon' }
+					})
 		);
 
-		await expect(discoverFavicon('https://example.com/', fetcher, allowUrl)).rejects.toThrow(
-			'too large'
-		);
+		const result = await discoverFavicon('https://example.com/', fetcher, allowUrl);
+
+		expect(result.sourceUrl).toBe('https://example.com/favicon.ico');
 	});
 });
 
