@@ -129,66 +129,61 @@
 		{/if}
 
 		<!-- Websites -->
-		<section>
-			<h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">
-				Websites
-			</h2>
-			{#if filteredWebsites.length}
-				<div class="space-y-6">
-					{#each websiteGroups as group (group.id)}
-						<section aria-labelledby={`websites-${group.id}`}>
-							<h3
-								id={`websites-${group.id}`}
-								class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase"
+		{#if filteredWebsites.length}
+			{#each websiteGroups as group (group.id)}
+				<section aria-labelledby={`websites-${group.id}`}>
+					<h2
+						id={`websites-${group.id}`}
+						class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+					>
+						{group.title}
+					</h2>
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{#each group.websites as site (site.id)}
+							{@const favicon = faviconFor(site.url, site.iconUrl)}
+							<div
+								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
 							>
-								{group.title}
-							</h3>
-							<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-								{#each group.websites as site (site.id)}
-									{@const favicon = faviconFor(site.url, site.iconUrl)}
-									<div
-										class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
-									>
-										<a
-											href={site.url}
-											target="_blank"
-											rel="noopener noreferrer"
-											class="flex items-start gap-3"
-										>
-											{#if favicon}
-												<img
-													src={favicon}
-													alt=""
-													class="mt-0.5 size-6 shrink-0 rounded"
-													loading="lazy"
-												/>
-											{:else}
-												<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
-											{/if}
-											<span class="min-w-0 flex-1">
-												<span class="flex items-center gap-1.5 font-medium">
-													{site.title}
-													<ExternalLink
-														class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
-													/>
-												</span>
-												{#if site.description}
-													<span class="text-muted-foreground line-clamp-2 text-sm"
-														>{site.description}</span
-													>
-												{/if}
-											</span>
-										</a>
-									</div>
-								{/each}
+								<a
+									href={site.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex items-start gap-3"
+								>
+									{#if favicon}
+										<img
+											src={favicon}
+											alt=""
+											class="mt-0.5 size-6 shrink-0 rounded"
+											loading="lazy"
+										/>
+									{:else}
+										<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
+									{/if}
+									<span class="min-w-0 flex-1">
+										<span class="flex items-center gap-1.5 font-medium">
+											{site.title}
+											<ExternalLink
+												class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+											/>
+										</span>
+										{#if site.description}
+											<span class="text-muted-foreground line-clamp-2 text-sm"
+												>{site.description}</span
+											>
+										{/if}
+									</span>
+								</a>
 							</div>
-						</section>
-					{/each}
-				</div>
-			{:else}
+						{/each}
+					</div>
+				</section>
+			{/each}
+		{:else}
+			<section>
 				<p class="text-muted-foreground text-sm">No websites match "{q}".</p>
-			{/if}
-		</section>
+			</section>
+		{/if}
 
 		<!-- GitHub projects -->
 		<section>

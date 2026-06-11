@@ -30,7 +30,6 @@ export async function getWeather(
 		return cached.value;
 	}
 
-	let value: CityWeather | null = null;
 	const url = new URL('https://api.open-meteo.com/v1/forecast');
 	url.searchParams.set('latitude', String(c.latitude));
 	url.searchParams.set('longitude', String(c.longitude));
@@ -51,7 +50,7 @@ export async function getWeather(
 			const code = data.current?.weather_code;
 			if (typeof temp === 'number' && typeof code === 'number') {
 				const info = weatherCodeToInfo(code);
-				value = {
+				const value: CityWeather = {
 					temperature: Math.round(temp),
 					unit: data.current_units?.temperature_2m ?? '°C',
 					label: info.label,
