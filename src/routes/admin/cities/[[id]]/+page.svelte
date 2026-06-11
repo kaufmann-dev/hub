@@ -23,6 +23,7 @@
 
 	let { data }: { data: PageData } = $props();
 
+	// svelte-ignore state_referenced_locally (Superforms is initialized once from page load data.)
 	const form = superForm(data.form, { validators: zod4Client(citySchema) });
 	const { form: formData, enhance } = form;
 

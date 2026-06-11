@@ -6,14 +6,16 @@
 	import * as Form from '$lib/components/ui/form';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { NativeSelect } from '$lib/components/ui/native-select';
+	import * as Select from '$lib/components/ui/select';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
+	// svelte-ignore state_referenced_locally (Superforms is initialized once from page load data.)
 	const form = superForm(data.form, { validators: zod4Client(websiteSchema) });
 	const { form: formData, enhance } = form;
+	const kindLabel = $derived($formData.kind === 'third_party' ? 'Third-party' : 'Personal');
 </script>
 
 <svelte:head><title>{data.isEdit ? 'Edit website' : 'Add website'} · Admin</title></svelte:head>
@@ -71,10 +73,19 @@
 				<Form.Control>
 					{#snippet children({ props })}
 						<Form.Label>Kind</Form.Label>
-						<NativeSelect {...props} bind:value={$formData.kind}>
-							<option value="personal">Personal</option>
-							<option value="third_party">Third-party</option>
-						</NativeSelect>
+						<Select.Root type="single" name={props.name} bind:value={$formData.kind}>
+							<Select.Trigger
+								id={props.id}
+								aria-invalid={props['aria-invalid']}
+								aria-describedby={props['aria-describedby']}
+							>
+								{kindLabel}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="personal" label="Personal">Personal</Select.Item>
+								<Select.Item value="third_party" label="Third-party">Third-party</Select.Item>
+							</Select.Content>
+						</Select.Root>
 					{/snippet}
 				</Form.Control>
 				<Form.FieldErrors />

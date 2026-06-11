@@ -38,7 +38,9 @@ export async function getWeather(
 	url.searchParams.set('timezone', 'auto');
 
 	try {
-		console.log(`[Weather] Fetching for city ${c.id} (${c.latitude}, ${c.longitude}): ${url.toString()}`);
+		console.log(
+			`[Weather] Fetching for city ${c.id} (${c.latitude}, ${c.longitude}): ${url.toString()}`
+		);
 		const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
 		if (res.ok) {
 			const data = (await res.json()) as {
@@ -55,14 +57,21 @@ export async function getWeather(
 					label: info.label,
 					icon: info.icon
 				};
-				console.log(`[Weather] Successfully fetched for city ${c.id}: ${value.temperature}${value.unit}, ${value.label}`);
+				console.log(
+					`[Weather] Successfully fetched for city ${c.id}: ${value.temperature}${value.unit}, ${value.label}`
+				);
 				cache.set(c.id, { at: Date.now(), value });
 				return value;
 			} else {
-				console.warn(`[Weather] City ${c.id} response missing temp or code. Data:`, JSON.stringify(data));
+				console.warn(
+					`[Weather] City ${c.id} response missing temp or code. Data:`,
+					JSON.stringify(data)
+				);
 			}
 		} else {
-			console.error(`[Weather] Fetch failed for city ${c.id} with status ${res.status}: ${res.statusText}`);
+			console.error(
+				`[Weather] Fetch failed for city ${c.id} with status ${res.status}: ${res.statusText}`
+			);
 		}
 	} catch (err) {
 		console.error(`[Weather] Error fetching for city ${c.id}:`, err);

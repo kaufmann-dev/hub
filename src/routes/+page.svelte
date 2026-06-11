@@ -24,6 +24,14 @@
 	const filteredWebsites = $derived(
 		data.websites.filter((w) => matches(w.title, w.description, w.url))
 	);
+	const personalWebsites = $derived(filteredWebsites.filter((w) => w.kind === 'personal'));
+	const thirdPartyWebsites = $derived(filteredWebsites.filter((w) => w.kind === 'third_party'));
+	const websiteGroups = $derived(
+		[
+			{ id: 'personal' as const, title: 'Personal websites', websites: personalWebsites },
+			{ id: 'third_party' as const, title: 'Third-party websites', websites: thirdPartyWebsites }
+		].filter((group) => group.websites.length > 0)
+	);
 	const filteredProjects = $derived(
 		data.projects.filter((p) =>
 			matches(p.name, p.descriptionOverride ?? p.description, p.language, p.fullName)
@@ -126,43 +134,55 @@
 				Websites
 			</h2>
 			{#if filteredWebsites.length}
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					{#each filteredWebsites as site (site.id)}
-						{@const favicon = faviconFor(site.url, site.iconUrl)}
-						<div
-							class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
-						>
-							<a
-								href={site.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="flex items-start gap-3"
+				<div class="space-y-6">
+					{#each websiteGroups as group (group.id)}
+						<section aria-labelledby={`websites-${group.id}`}>
+							<h3
+								id={`websites-${group.id}`}
+								class="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase"
 							>
-								{#if favicon}
-									<img
-										src={favicon}
-										alt=""
-										class="mt-0.5 size-6 shrink-0 rounded"
-										loading="lazy"
-									/>
-								{:else}
-									<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
-								{/if}
-								<span class="min-w-0 flex-1">
-									<span class="flex items-center gap-1.5 font-medium">
-										{site.title}
-										<ExternalLink
-											class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
-										/>
-									</span>
-									{#if site.description}
-										<span class="text-muted-foreground line-clamp-2 text-sm"
-											>{site.description}</span
+								{group.title}
+							</h3>
+							<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+								{#each group.websites as site (site.id)}
+									{@const favicon = faviconFor(site.url, site.iconUrl)}
+									<div
+										class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
+									>
+										<a
+											href={site.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="flex items-start gap-3"
 										>
-									{/if}
-								</span>
-							</a>
-						</div>
+											{#if favicon}
+												<img
+													src={favicon}
+													alt=""
+													class="mt-0.5 size-6 shrink-0 rounded"
+													loading="lazy"
+												/>
+											{:else}
+												<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0" />
+											{/if}
+											<span class="min-w-0 flex-1">
+												<span class="flex items-center gap-1.5 font-medium">
+													{site.title}
+													<ExternalLink
+														class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+													/>
+												</span>
+												{#if site.description}
+													<span class="text-muted-foreground line-clamp-2 text-sm"
+														>{site.description}</span
+													>
+												{/if}
+											</span>
+										</a>
+									</div>
+								{/each}
+							</div>
+						</section>
 					{/each}
 				</div>
 			{:else}
