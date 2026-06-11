@@ -21,6 +21,9 @@ export const websiteSchema = z.object({
 });
 export type WebsiteSchema = typeof websiteSchema;
 
+const requiredCoordinate = (min: number, max: number) =>
+	z.preprocess((value) => (value === '' ? undefined : value), z.coerce.number().min(min).max(max));
+
 export const citySchema = z.object({
 	name: z.string().trim().min(1, 'Name is required'),
 	timezone: z
@@ -35,8 +38,8 @@ export const citySchema = z.object({
 				return false;
 			}
 		}, 'Invalid IANA timezone (e.g. Europe/Vienna)'),
-	latitude: z.coerce.number().min(-90).max(90),
-	longitude: z.coerce.number().min(-180).max(180),
+	latitude: requiredCoordinate(-90, 90),
+	longitude: requiredCoordinate(-180, 180),
 	sortOrder: z.coerce.number().int().default(0)
 });
 export type CitySchema = typeof citySchema;
