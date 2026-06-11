@@ -103,7 +103,7 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-6xl flex-1 space-y-10 px-4 py-8">
+	<main class="mx-auto w-full max-w-6xl flex-1 space-y-10 px-4 py-8">
 		<!-- City clocks + weather -->
 		{#if data.cities.length}
 			<section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
