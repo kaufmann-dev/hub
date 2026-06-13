@@ -24,16 +24,16 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-const { GET } = await import('../../routes/websites/[id]/favicon/+server');
+const { GET } = await import('../../routes/websites/[id]/favicon/[theme]/+server');
 
-function event(id: string, theme?: string) {
+function event(id: string, theme = 'light') {
 	return {
-		params: { id },
-		url: new URL(`https://example.com/websites/${id}/favicon${theme ? `?theme=${theme}` : ''}`)
+		params: { id, theme },
+		url: new URL(`https://example.com/websites/${id}/favicon/${theme}`)
 	} as Parameters<typeof GET>[0];
 }
 
-describe('GET /websites/[id]/favicon', () => {
+describe('GET /websites/[id]/favicon/[theme]', () => {
 	beforeEach(() => {
 		mock.row = undefined;
 	});
@@ -95,5 +95,9 @@ describe('GET /websites/[id]/favicon', () => {
 
 	it('returns 404 when no cached image exists', async () => {
 		await expect(GET(event('1'))).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('returns 404 for an invalid theme', async () => {
+		await expect(GET(event('1', 'sepia'))).rejects.toMatchObject({ status: 404 });
 	});
 });

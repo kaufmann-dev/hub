@@ -4,11 +4,12 @@ import { db } from '$lib/server/db';
 import { websiteFavicon } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) error(404, 'Favicon not found');
+	if (params.theme !== 'light' && params.theme !== 'dark') error(404, 'Favicon not found');
 	const [favicon] = await db.select().from(websiteFavicon).where(eq(websiteFavicon.websiteId, id));
-	const dark = url.searchParams.get('theme') === 'dark';
+	const dark = params.theme === 'dark';
 	const data = dark ? (favicon?.darkData ?? favicon?.data) : favicon?.data;
 	const contentType = dark
 		? (favicon?.darkContentType ?? favicon?.contentType)

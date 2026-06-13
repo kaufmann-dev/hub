@@ -3,9 +3,9 @@ export function faviconUrls(
 	websiteId: number,
 	checkedAt?: Date | string | null
 ): { light: string; dark: string } {
-	const version = checkedAt ? `&v=${encodeURIComponent(new Date(checkedAt).toISOString())}` : '';
+	const version = checkedAt ? `?v=${encodeURIComponent(new Date(checkedAt).toISOString())}` : '';
 	return {
-		light: `/websites/${websiteId}/favicon?theme=light${version}`,
-		dark: `/websites/${websiteId}/favicon?theme=dark${version}`
+		light: `/websites/${websiteId}/favicon/light${version}`,
+		dark: `/websites/${websiteId}/favicon/dark${version}`
 	};
 }
