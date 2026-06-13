@@ -1,7 +1,5 @@
-import { page } from 'vitest/browser';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render } from 'vitest-browser-svelte';
-import { setMode } from 'mode-watcher';
 import WebsiteIcon from './WebsiteIcon.svelte';
 
 describe('WebsiteIcon.svelte', () => {
@@ -13,16 +11,14 @@ describe('WebsiteIcon.svelte', () => {
 		cleanup();
 	});
 
-	it('renders only the icon for the resolved theme', async () => {
-		setMode('light');
+	it('renders both static theme icons for CSS-controlled first paint', () => {
 		render(WebsiteIcon, { lightSrc, darkSrc });
 
-		await expect.element(page.getByAltText('')).toHaveAttribute('src', lightSrc);
-		expect(document.querySelectorAll('img')).toHaveLength(1);
-
-		setMode('dark');
-
-		await expect.element(page.getByAltText('')).toHaveAttribute('src', darkSrc);
-		expect(document.querySelectorAll('img')).toHaveLength(1);
+		const icons = [...document.querySelectorAll('img')];
+		expect(icons).toHaveLength(2);
+		expect(icons[0]).toHaveAttribute('src', lightSrc);
+		expect(icons[0]).toHaveClass('dark:hidden');
+		expect(icons[1]).toHaveAttribute('src', darkSrc);
+		expect(icons[1]).toHaveClass('hidden', 'dark:block');
 	});
 });
