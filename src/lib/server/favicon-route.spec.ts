@@ -24,16 +24,16 @@ vi.mock('$lib/server/db', () => ({
 	}
 }));
 
-const { GET } = await import('../../routes/websites/[id]/favicon/[theme]/+server');
+const { GET } = await import('../../routes/websites/[id]/favicon/static/[theme]/+server');
 
 function event(id: string, theme = 'light') {
 	return {
 		params: { id, theme },
-		url: new URL(`https://example.com/websites/${id}/favicon/${theme}`)
+		url: new URL(`https://example.com/websites/${id}/favicon/static/${theme}`)
 	} as Parameters<typeof GET>[0];
 }
 
-describe('GET /websites/[id]/favicon/[theme]', () => {
+describe('GET /websites/[id]/favicon/static/[theme]', () => {
 	beforeEach(() => {
 		mock.row = undefined;
 	});
@@ -91,6 +91,39 @@ describe('GET /websites/[id]/favicon/[theme]', () => {
 
 		expect(response.headers.get('content-type')).toBe('image/png');
 		expect(Buffer.from(await response.arrayBuffer())).toEqual(light);
+	});
+
+	it('serves SVGs with a static requested theme', async () => {
+		const svg = Buffer.from(`
+			<svg xmlns="http://www.w3.org/2000/svg">
+				<style>
+					path { fill: black }
+					@media (prefers-color-scheme: dark) { path { fill: white } }
+				</style>
+				<path />
+			</svg>
+		`);
+		mock.row = {
+			websiteId: 1,
+			data: svg,
+			contentType: 'image/svg+xml',
+			sourceUrl: 'https://example.com/favicon.svg',
+			darkData: null,
+			darkContentType: null,
+			darkSourceUrl: null
+		};
+
+		const light = await GET(event('1', 'light'));
+		const dark = await GET(event('1', 'dark'));
+		const lightSvg = await light.text();
+		const darkSvg = await dark.text();
+
+		expect(lightSvg).toContain('path { fill: black }');
+		expect(lightSvg).not.toContain('path { fill: white }');
+		expect(darkSvg).toContain('path { fill: black }');
+		expect(darkSvg).toContain('path { fill: white }');
+		expect(lightSvg).not.toContain('prefers-color-scheme');
+		expect(darkSvg).not.toContain('prefers-color-scheme');
 	});
 
 	it('returns 404 when no cached image exists', async () => {

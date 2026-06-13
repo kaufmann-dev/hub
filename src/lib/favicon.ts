@@ -5,7 +5,7 @@ export function faviconUrls(
 ): { light: string; dark: string } {
 	const version = checkedAt ? `?v=${encodeURIComponent(new Date(checkedAt).toISOString())}` : '';
 	return {
-		light: `/websites/${websiteId}/favicon/light${version}`,
-		dark: `/websites/${websiteId}/favicon/dark${version}`
+		light: `/websites/${websiteId}/favicon/static/light${version}`,
+		dark: `/websites/${websiteId}/favicon/static/dark${version}`
 	};
 }
