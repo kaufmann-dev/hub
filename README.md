@@ -27,8 +27,9 @@ area for editing everything. It also shows stock-market status cards for curated
   theme-aware favicons.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
-- **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, project
-  overrides, bulk icon refresh, and a "Sync now" button.
+- **Admin** (`/admin`) — gated by a single password; CRUD for websites, cities, and markets,
+  project overrides, market import from Alpha Vantage, bulk icon refresh, and a "Sync now"
+  button.
 
 ## Environment
 

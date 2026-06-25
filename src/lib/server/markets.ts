@@ -68,6 +68,27 @@ export function marketStatusKey(marketType: string, region: string): string {
 	return `${marketType.trim().toLowerCase()}::${region.trim().toLowerCase()}`;
 }
 
+export function marketDisplayName(status: Pick<MarketStatus, 'marketType' | 'region'>): string {
+	if (status.region.toLowerCase() === 'global') return status.marketType;
+	return status.region;
+}
+
+export function marketOptionLabel(status: MarketStatus): string {
+	return `${status.marketType} · ${status.region} · ${status.primaryExchanges}`;
+}
+
+export function unconfiguredMarketStatuses(
+	watchlist: Pick<MarketWatchlist, 'marketType' | 'region'>[],
+	statuses: MarketStatus[]
+): MarketStatus[] {
+	const configuredKeys = new Set(
+		watchlist.map((market) => marketStatusKey(market.marketType, market.region))
+	);
+	return statuses.filter(
+		(status) => !configuredKeys.has(marketStatusKey(status.marketType, status.region))
+	);
+}
+
 export function buildWatchedMarketStatuses(
 	watchlist: MarketWatchlist[],
 	statuses: MarketStatus[]

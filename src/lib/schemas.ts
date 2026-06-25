@@ -55,3 +55,10 @@ export const marketWatchlistSchema = z.object({
 	hidden: z.boolean().default(false)
 });
 export type MarketWatchlistSchema = typeof marketWatchlistSchema;
+
+export const marketCreateSchema = z.object({
+	marketKey: z.string().trim().min(1, 'Market is required'),
+	displayName: optionalText,
+	hidden: z.boolean().default(false)
+});
+export type MarketCreateSchema = typeof marketCreateSchema;

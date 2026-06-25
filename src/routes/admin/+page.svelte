@@ -33,6 +33,8 @@
 	let syncStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let refreshingFavicons = $state(false);
 	let faviconStatus = $state<{ ok: boolean; message: string } | null>(null);
+	let importingMarkets = $state(false);
+	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
 	let dragging = $state<{ type: AdminTab; id: number } | null>(null);
@@ -587,6 +589,53 @@
 
 			<!-- Markets -->
 			<Tabs.Content value="markets" class="space-y-3">
+				<div class="flex items-center justify-end gap-3">
+					{#if marketImportStatus}
+						<span
+							class={[
+								'text-sm',
+								marketImportStatus.ok ? 'text-muted-foreground' : 'text-destructive'
+							]}
+						>
+							{marketImportStatus.message}
+						</span>
+					{/if}
+					<form
+						method="POST"
+						action="?/importSupportedMarkets"
+						use:enhance={() => {
+							importingMarkets = true;
+							marketImportStatus = null;
+							return async ({ result, update }) => {
+								if (result.type === 'success') {
+									const imported = (result.data?.imported as number | undefined) ?? 0;
+									marketImportStatus = {
+										ok: true,
+										message:
+											imported === 0
+												? 'All supported markets are already configured.'
+												: `Imported ${imported} markets.`
+									};
+								} else {
+									marketImportStatus = {
+										ok: false,
+										message: 'Market import failed. Check the Alpha Vantage API key.'
+									};
+								}
+								await update();
+								importingMarkets = false;
+							};
+						}}
+					>
+						<Button type="submit" variant="outline" size="sm" disabled={importingMarkets}>
+							<RefreshCw class={['size-4', importingMarkets && 'animate-spin']} />
+							{importingMarkets ? 'Importing…' : 'Import supported'}
+						</Button>
+					</form>
+					<a href={resolve('/admin/markets')} class={buttonVariants({ size: 'sm' })}>
+						<Plus class="size-4" /> Add market
+					</a>
+				</div>
 				{#if reorderError && activeTab === 'markets'}
 					<p class="text-destructive text-sm">{reorderError}</p>
 				{/if}
@@ -637,9 +686,18 @@
 							>
 								<Pencil class="size-4" />
 							</a>
+							<form method="POST" action="?/deleteMarket" use:enhance>
+								<input type="hidden" name="id" value={market.id} />
+								<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
+									<Trash2 class="text-destructive size-4" />
+								</Button>
+							</form>
 						</div>
 					{:else}
-						<p class="text-muted-foreground text-sm">No markets configured.</p>
+						<p class="text-muted-foreground text-sm">
+							No markets configured. Add one market or import every market returned by Alpha
+							Vantage.
+						</p>
 					{/each}
 				</div>
 			</Tabs.Content>

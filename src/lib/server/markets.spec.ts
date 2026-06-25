@@ -43,7 +43,9 @@ const {
 	buildWatchedMarketStatuses,
 	getMarketStatuses,
 	MARKET_STATUS_CACHE_KEY,
-	parseMarketStatusResponse
+	marketDisplayName,
+	parseMarketStatusResponse,
+	unconfiguredMarketStatuses
 } = await import('./markets');
 
 const payload = {
@@ -196,6 +198,25 @@ describe('market status', () => {
 				currentStatus: 'open',
 				isOpen: true,
 				isUnknown: false
+			})
+		]);
+	});
+
+	it('uses market type as display name for global Alpha Vantage rows', () => {
+		expect(marketDisplayName({ marketType: 'Forex', region: 'Global' })).toBe('Forex');
+		expect(marketDisplayName({ marketType: 'Equity', region: 'Germany' })).toBe('Germany');
+	});
+
+	it('filters out already configured Alpha Vantage market rows', () => {
+		const missing = unconfiguredMarketStatuses(
+			[{ marketType: 'Equity', region: 'United States' }],
+			parseMarketStatusResponse(payload)
+		);
+
+		expect(missing).toEqual([
+			expect.objectContaining({
+				marketType: 'Equity',
+				region: 'United Kingdom'
 			})
 		]);
 	});

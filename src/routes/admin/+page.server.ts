@@ -5,10 +5,16 @@ import { website, githubProject, city, marketWatchlist } from '$lib/server/db/sc
 import { syncGithubProjects } from '$lib/server/github';
 import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
 import { SESSION_COOKIE } from '$lib/server/auth';
+import {
+	getMarketStatuses,
+	marketDisplayName,
+	marketStatusKey,
+	unconfiguredMarketStatuses
+} from '$lib/server/markets';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const [websites, projects, cities, markets] = await Promise.all([
+	const [websites, projects, cities, markets, marketStatus] = await Promise.all([
 		db.select().from(website).orderBy(asc(website.sortOrder), asc(website.title)),
 		db
 			.select()
@@ -23,14 +29,25 @@ export const load: PageServerLoad = async () => {
 		db
 			.select()
 			.from(marketWatchlist)
-			.orderBy(asc(marketWatchlist.sortOrder), asc(marketWatchlist.displayName))
+			.orderBy(asc(marketWatchlist.sortOrder), asc(marketWatchlist.displayName)),
+		getMarketStatuses()
 	]);
-	return { websites, projects, cities, markets };
+	const availableMarkets = unconfiguredMarketStatuses(markets, marketStatus.markets);
+	return { websites, projects, cities, markets, availableMarkets, marketStatus };
 };
 
 function idFrom(form: FormData): number | null {
 	const id = Number(form.get('id'));
 	return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+async function nextMarketSortOrder(): Promise<number> {
+	const [last] = await db
+		.select({ sortOrder: marketWatchlist.sortOrder })
+		.from(marketWatchlist)
+		.orderBy(desc(marketWatchlist.sortOrder))
+		.limit(1);
+	return (last?.sortOrder ?? -1) + 1;
 }
 
 export const actions: Actions = {
@@ -47,6 +64,14 @@ export const actions: Actions = {
 		const id = idFrom(await request.formData());
 		if (!id) return fail(400);
 		await db.delete(city).where(eq(city.id, id));
+		return { success: true };
+	},
+
+	deleteMarket: async ({ request, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const id = idFrom(await request.formData());
+		if (!id) return fail(400);
+		await db.delete(marketWatchlist).where(eq(marketWatchlist.id, id));
 		return { success: true };
 	},
 
@@ -68,6 +93,34 @@ export const actions: Actions = {
 		const hidden = form.get('hidden') === 'true';
 		await db.update(marketWatchlist).set({ hidden }).where(eq(marketWatchlist.id, id));
 		return { success: true };
+	},
+
+	importSupportedMarkets: async ({ locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const marketStatus = await getMarketStatuses();
+		if (marketStatus.markets.length === 0) {
+			return fail(502, { marketImportFailed: true, error: marketStatus.error });
+		}
+
+		const rows = await db.select().from(marketWatchlist);
+		const existingKeys = new Set(rows.map((row) => marketStatusKey(row.marketType, row.region)));
+		const missing = marketStatus.markets.filter(
+			(status) => !existingKeys.has(marketStatusKey(status.marketType, status.region))
+		);
+		const startSortOrder = await nextMarketSortOrder();
+
+		if (missing.length > 0) {
+			await db.insert(marketWatchlist).values(
+				missing.map((status, index) => ({
+					marketType: status.marketType,
+					region: status.region,
+					displayName: marketDisplayName(status),
+					sortOrder: startSortOrder + index
+				}))
+			);
+		}
+
+		return { success: true, imported: missing.length };
 	},
 
 	setAllProjectsHidden: async ({ request, locals }) => {
