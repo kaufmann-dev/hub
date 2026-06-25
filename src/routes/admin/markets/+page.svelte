@@ -5,7 +5,6 @@
 	import { ArrowLeft } from '@lucide/svelte';
 	import { marketCreateSchema } from '$lib/schemas';
 	import * as Form from '$lib/components/ui/form';
-	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { PageData } from './$types';
@@ -16,17 +15,12 @@
 	const form = superForm(data.form, { validators: zod4Client(marketCreateSchema) });
 	const { form: formData, enhance } = form;
 
-	function marketKey(market: PageData['availableMarkets'][number]): string {
-		return `${market.marketType.trim().toLowerCase()}::${market.region.trim().toLowerCase()}`;
-	}
-
 	function optionLabel(market: PageData['availableMarkets'][number]): string {
-		const sourceLabel = market.statusSource === 'schedule' ? ' · Schedule' : '';
-		return `${market.marketType} · ${market.region} · ${market.primaryExchanges}${sourceLabel}`;
+		return `${market.title} · ${market.city}, ${market.country}`;
 	}
 
 	let selectedMarket = $derived(
-		data.availableMarkets.find((market) => marketKey(market) === $formData.marketKey)
+		data.availableMarkets.find((market) => String(market.id) === $formData.supportedMarketId)
 	);
 </script>
 
@@ -47,37 +41,22 @@
 
 		{#if data.availableMarkets.length}
 			<form method="POST" use:enhance class="space-y-4">
-				<Form.Field {form} name="marketKey">
+				<Form.Field {form} name="supportedMarketId">
 					<Form.Control>
 						{#snippet children({ props })}
-							<Form.Label>Market</Form.Label>
+							<Form.Label>Exchange</Form.Label>
 							<select
 								{...props}
-								bind:value={$formData.marketKey}
+								bind:value={$formData.supportedMarketId}
 								class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
 							>
-								<option value="">Select a market</option>
-								{#each data.availableMarkets as market (marketKey(market))}
-									<option value={marketKey(market)}>{optionLabel(market)}</option>
+								<option value="">Select an exchange</option>
+								{#each data.availableMarkets as market (market.id)}
+									<option value={String(market.id)}>{optionLabel(market)}</option>
 								{/each}
 							</select>
 						{/snippet}
 					</Form.Control>
-					<Form.FieldErrors />
-				</Form.Field>
-
-				<Form.Field {form} name="displayName">
-					<Form.Control>
-						{#snippet children({ props })}
-							<Form.Label>Display name</Form.Label>
-							<Input
-								{...props}
-								placeholder={selectedMarket?.region ?? 'Shown on the hub'}
-								bind:value={$formData.displayName}
-							/>
-						{/snippet}
-					</Form.Control>
-					<Form.Description>Leave empty to use the supported market display name.</Form.Description>
 					<Form.FieldErrors />
 				</Form.Field>
 
@@ -93,6 +72,16 @@
 					<Form.FieldErrors />
 				</Form.Field>
 
+				{#if selectedMarket}
+					<div class="bg-muted/40 rounded-lg border p-3 text-sm">
+						<p class="font-medium">{selectedMarket.title}</p>
+						<p class="text-muted-foreground mt-1">
+							{selectedMarket.city}, {selectedMarket.country}
+						</p>
+						<p class="text-muted-foreground mt-1">{selectedMarket.description}</p>
+					</div>
+				{/if}
+
 				<div class="flex gap-2">
 					<Form.Button>Create</Form.Button>
 					<a href={resolve('/admin?tab=markets')} class={buttonVariants({ variant: 'outline' })}
@@ -103,8 +92,7 @@
 		{:else}
 			<div class="rounded-lg border p-4">
 				<p class="text-muted-foreground text-sm">
-					No supported markets are available to add. Configure live market access or refresh after
-					the provider cache has data.
+					All canonical exchanges are already configured in the watchlist.
 				</p>
 				<a
 					href={resolve('/admin?tab=markets')}

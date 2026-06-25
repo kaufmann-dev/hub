@@ -5,7 +5,6 @@
 	import { ArrowLeft } from '@lucide/svelte';
 	import { marketWatchlistSchema } from '$lib/schemas';
 	import * as Form from '$lib/components/ui/form';
-	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
 	import { buttonVariants } from '$lib/components/ui/button';
 	import type { PageData } from './$types';
@@ -29,23 +28,17 @@
 			>
 				<ArrowLeft class="size-4" />
 			</a>
-			<h1 class="text-lg font-semibold">{data.market.displayName}</h1>
+			<h1 class="text-lg font-semibold">{data.market.market.title}</h1>
 		</div>
 		<p class="text-muted-foreground mb-6 pl-12 text-sm">
-			{data.market.marketType} · {data.market.region}
+			{data.market.market.city}, {data.market.market.country}
 		</p>
+		<div class="bg-muted/40 mb-6 rounded-lg border p-4 text-sm">
+			<p class="font-medium">{data.market.market.title}</p>
+			<p class="text-muted-foreground mt-1">{data.market.market.description}</p>
+		</div>
 
 		<form method="POST" use:enhance class="space-y-4">
-			<Form.Field {form} name="displayName">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Display name</Form.Label>
-						<Input {...props} bind:value={$formData.displayName} />
-					{/snippet}
-				</Form.Control>
-				<Form.FieldErrors />
-			</Form.Field>
-
 			<Form.Field {form} name="hidden">
 				<div class="flex items-center justify-between rounded-lg border p-3">
 					<Form.Control>

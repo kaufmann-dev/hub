@@ -6,15 +6,14 @@ import { syncGithubProjects } from '$lib/server/github';
 import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
 import { SESSION_COOKIE } from '$lib/server/auth';
 import {
-	getMarketStatuses,
-	marketDisplayName,
-	marketStatusKey,
-	unconfiguredMarketStatuses
+	getConfiguredMarkets,
+	getSupportedMarkets,
+	unconfiguredSupportedMarkets
 } from '$lib/server/markets';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const [websites, projects, cities, markets, marketStatus] = await Promise.all([
+	const [websites, projects, cities, markets, supportedMarkets] = await Promise.all([
 		db.select().from(website).orderBy(asc(website.sortOrder), asc(website.title)),
 		db
 			.select()
@@ -26,14 +25,11 @@ export const load: PageServerLoad = async () => {
 				asc(githubProject.id)
 			),
 		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name)),
-		db
-			.select()
-			.from(marketWatchlist)
-			.orderBy(asc(marketWatchlist.sortOrder), asc(marketWatchlist.displayName)),
-		getMarketStatuses()
+		getConfiguredMarkets(),
+		getSupportedMarkets()
 	]);
-	const availableMarkets = unconfiguredMarketStatuses(markets, marketStatus.markets);
-	return { websites, projects, cities, markets, availableMarkets, marketStatus };
+	const availableMarkets = unconfiguredSupportedMarkets(markets, supportedMarkets);
+	return { websites, projects, cities, markets, availableMarkets };
 };
 
 function idFrom(form: FormData): number | null {
@@ -97,24 +93,17 @@ export const actions: Actions = {
 
 	importSupportedMarkets: async ({ locals }) => {
 		if (!locals.isAdmin) return fail(403);
-		const marketStatus = await getMarketStatuses();
-		if (marketStatus.markets.length === 0) {
-			return fail(502, { marketImportFailed: true, error: marketStatus.error });
-		}
-
-		const rows = await db.select().from(marketWatchlist);
-		const existingKeys = new Set(rows.map((row) => marketStatusKey(row.marketType, row.region)));
-		const missing = marketStatus.markets.filter(
-			(status) => !existingKeys.has(marketStatusKey(status.marketType, status.region))
-		);
+		const [rows, supportedMarkets] = await Promise.all([
+			db.select().from(marketWatchlist),
+			getSupportedMarkets()
+		]);
+		const missing = unconfiguredSupportedMarkets(rows, supportedMarkets);
 		const startSortOrder = await nextMarketSortOrder();
 
 		if (missing.length > 0) {
 			await db.insert(marketWatchlist).values(
-				missing.map((status, index) => ({
-					marketType: status.marketType,
-					region: status.region,
-					displayName: marketDisplayName(status),
+				missing.map((market, index) => ({
+					supportedMarketId: market.id,
 					sortOrder: startSortOrder + index
 				}))
 			);

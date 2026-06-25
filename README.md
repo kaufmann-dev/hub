@@ -12,7 +12,7 @@ area for editing everything. It also shows stock-market status cards for curated
 | Data         | PostgreSQL, Drizzle ORM                                   |
 | Forms        | Superforms, Zod                                           |
 | Weather      | Open-Meteo (no API key)                                   |
-| Markets      | Alpha Vantage market status API                           |
+| Markets      | Local exchange schedule engine + `date-holidays`          |
 | Local prod   | podman, podman compose                                    |
 
 ## Features
@@ -21,29 +21,28 @@ area for editing everything. It also shows stock-market status cards for curated
   you type. Press `/` to focus it.
 - **Clocks & weather** — one card per city with a live clock (its IANA timezone) and current
   weather from Open-Meteo. Cities are editable in the database.
-- **Market status** — curated equity markets with Alpha Vantage-backed open/closed status,
-  locally cached to stay within the free API tier.
+- **Market status** — curated stock exchanges backed by a local schedule engine with canonical
+  exchange metadata, country-holiday calculation, and explicit exchange override rows for
+  exceptions like special sessions or non-public closures.
 - **Websites** — personal/third-party links with automatically discovered, locally cached,
   theme-aware favicons.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
-- **Admin** (`/admin`) — gated by a single password; CRUD for websites, cities, and markets,
-  project overrides, market import from Alpha Vantage, bulk icon refresh, and a "Sync now"
-  button.
+- **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, watchlist
+  management for canonical exchanges, bulk icon refresh, and a "Sync now" button.
 
 ## Environment
 
 Copy `.env.example` to `.env` and fill it in:
 
-| Variable                | Purpose                                                               |
-| ----------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`          | PostgreSQL connection string                                          |
-| `ORIGIN`                | Public origin (required by adapter-node for form POST/CSRF in prod)   |
-| `ADMIN_PASSWORD`        | Password for `/admin`                                                 |
-| `ADMIN_SESSION_SECRET`  | Secret used to sign the admin session cookie (`openssl rand -hex 32`) |
-| `GITHUB_USERNAME`       | GitHub account whose public repos are synced (default `kaufmann-dev`) |
-| `GITHUB_TOKEN`          | Optional; enables private owned repos when the token has access       |
-| `ALPHA_VANTAGE_API_KEY` | Optional; enables stock-market open/closed status cards               |
+| Variable               | Purpose                                                               |
+| ---------------------- | --------------------------------------------------------------------- |
+| `DATABASE_URL`         | PostgreSQL connection string                                          |
+| `ORIGIN`               | Public origin (required by adapter-node for form POST/CSRF in prod)   |
+| `ADMIN_PASSWORD`       | Password for `/admin`                                                 |
+| `ADMIN_SESSION_SECRET` | Secret used to sign the admin session cookie (`openssl rand -hex 32`) |
+| `GITHUB_USERNAME`      | GitHub account whose public repos are synced (default `kaufmann-dev`) |
+| `GITHUB_TOKEN`         | Optional; enables private owned repos when the token has access       |
 
 ## Development
 
@@ -55,6 +54,7 @@ pnpm dev
 ```
 
 GitHub projects populate on first load (background sync) or via "Sync now" in `/admin`.
+The canonical exchange catalog is migration-managed and does not rely on `pnpm db:seed`.
 
 ### Development database (podman)
 
@@ -124,5 +124,3 @@ Optional:
 - `GITHUB_USERNAME` — GitHub account to sync (default `kaufmann-dev`)
 - `GITHUB_TOKEN` — enables private owned repos and raises the GitHub API rate limit when
   the token has access to those repositories; sync falls back to public repos without it
-- `ALPHA_VANTAGE_API_KEY` — enables stock-market status cards; responses are cached
-  server-side and never fetched from the browser

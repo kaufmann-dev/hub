@@ -5,8 +5,8 @@ import {
 	text,
 	boolean,
 	timestamp,
+	date,
 	doublePrecision,
-	jsonb,
 	customType
 } from 'drizzle-orm/pg-core';
 
@@ -75,28 +75,66 @@ export const city = pgTable('city', {
 	sortOrder: integer('sort_order').notNull().default(0)
 });
 
-/** Curated financial markets shown on the hub. */
+/** Canonical exchange catalog owned by the project. */
+export const supportedMarket = pgTable('supported_market', {
+	id: serial('id').primaryKey(),
+	slug: text('slug').notNull().unique(),
+	title: text('title').notNull(),
+	city: text('city').notNull(),
+	country: text('country').notNull(),
+	timezone: text('timezone').notNull(),
+	description: text('description').notNull(),
+	holidayCalendarCode: text('holiday_calendar_code').notNull(),
+	weekendDays: text('weekend_days').array().notNull()
+});
+
+/** One or more regular local-time sessions for a supported market. */
+export const supportedMarketSession = pgTable('supported_market_session', {
+	id: serial('id').primaryKey(),
+	marketId: integer('market_id')
+		.notNull()
+		.references(() => supportedMarket.id, { onDelete: 'cascade' }),
+	sortOrder: integer('sort_order').notNull().default(0),
+	startTime: text('start_time').notNull(),
+	endTime: text('end_time').notNull()
+});
+
+/**
+ * Date-specific closures and special-session overrides.
+ * `kind = "closed"` blocks the whole day.
+ * `kind = "session"` replaces the regular schedule with one or more rows for that date.
+ */
+export const supportedMarketClosure = pgTable('supported_market_closure', {
+	id: serial('id').primaryKey(),
+	marketId: integer('market_id')
+		.notNull()
+		.references(() => supportedMarket.id, { onDelete: 'cascade' }),
+	closureDate: date('closure_date').notNull(),
+	kind: text('kind').notNull(),
+	reason: text('reason').notNull(),
+	sortOrder: integer('sort_order').notNull().default(0),
+	startTime: text('start_time'),
+	endTime: text('end_time')
+});
+
+/** Curated exchange watchlist shown on the hub. */
 export const marketWatchlist = pgTable('market_watchlist', {
 	id: serial('id').primaryKey(),
-	marketType: text('market_type').notNull(),
-	region: text('region').notNull(),
-	displayName: text('display_name').notNull(),
+	supportedMarketId: integer('supported_market_id')
+		.notNull()
+		.references(() => supportedMarket.id, { onDelete: 'cascade' })
+		.unique(),
 	hidden: boolean('hidden').notNull().default(false),
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
 
-/** Server-side cache for Alpha Vantage market-status responses. */
-export const marketStatusCache = pgTable('market_status_cache', {
-	key: text('key').primaryKey(),
-	data: jsonb('data').notNull(),
-	fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow()
-});
-
 export type Website = typeof website.$inferSelect;
 export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
 export type GithubProject = typeof githubProject.$inferSelect;
 export type City = typeof city.$inferSelect;
+export type SupportedMarket = typeof supportedMarket.$inferSelect;
+export type SupportedMarketSession = typeof supportedMarketSession.$inferSelect;
+export type SupportedMarketClosure = typeof supportedMarketClosure.$inferSelect;
 export type MarketWatchlist = typeof marketWatchlist.$inferSelect;
-export type MarketStatusCache = typeof marketStatusCache.$inferSelect;

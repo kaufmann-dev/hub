@@ -1,371 +1,478 @@
-import { env } from '$env/dynamic/private';
-import { eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import Holidays from 'date-holidays';
-import { z } from 'zod';
 import { db } from '$lib/server/db';
-import { marketStatusCache, type MarketWatchlist } from '$lib/server/db/schema';
+import {
+	marketWatchlist,
+	supportedMarket,
+	supportedMarketClosure,
+	supportedMarketSession,
+	type MarketWatchlist,
+	type SupportedMarket
+} from '$lib/server/db/schema';
 
-export const MARKET_STATUS_CACHE_KEY = 'alpha-vantage-market-status';
-export const MARKET_STATUS_MAX_AGE_MS = 65 * 60 * 1000;
-
-type ScheduleMarket = {
-	marketType: string;
-	region: string;
-	primaryExchanges: string;
-	localOpen: string;
-	localClose: string;
-	timeZone: string;
-	/** date-holidays country code, e.g. 'KR', 'TW' */
-	countryCode: string;
-	notes: string;
+type SessionWindow = {
+	startTime: string;
+	endTime: string;
+	sortOrder: number;
 };
 
-/** Markets whose open/closed status is computed locally from the clock + public holidays. */
-export const SCHEDULE_MARKETS: ScheduleMarket[] = [
-	{
-		marketType: 'Equity',
-		region: 'South Korea',
-		primaryExchanges: 'Korea Exchange (KRX)',
-		localOpen: '09:00',
-		localClose: '15:30',
-		timeZone: 'Asia/Seoul',
-		countryCode: 'KR',
-		notes: 'Schedule-based · South Korea holidays considered'
-	},
-	{
-		marketType: 'Equity',
-		region: 'Taiwan',
-		primaryExchanges: 'Taiwan Stock Exchange (TWSE)',
-		localOpen: '09:00',
-		localClose: '13:30',
-		timeZone: 'Asia/Taipei',
-		countryCode: 'TW',
-		notes: 'Schedule-based · Taiwan holidays considered'
-	}
-];
+type ClosureOverride = {
+	closureDate: string;
+	kind: 'closed' | 'session';
+	reason: string;
+	sortOrder: number;
+	startTime: string | null;
+	endTime: string | null;
+};
 
-const alphaVantageMarketSchema = z.object({
-	market_type: z.string(),
-	region: z.string(),
-	primary_exchanges: z.string(),
-	local_open: z.string(),
-	local_close: z.string(),
-	current_status: z.string(),
-	notes: z.string().optional().default('')
-});
+type ScheduleDefinition = SupportedMarket & {
+	sessions: SessionWindow[];
+	closures: ClosureOverride[];
+};
 
-const alphaVantageMarketStatusSchema = z.object({
-	markets: z.array(alphaVantageMarketSchema)
-});
+type DaySchedule = {
+	date: string;
+	sessions: SessionWindow[];
+	source: 'regular' | 'special-session' | 'holiday' | 'weekend' | 'closed';
+	reason: string | null;
+};
 
-const alphaVantageErrorSchema = z
-	.object({
-		Information: z.string().optional(),
-		Note: z.string().optional(),
-		'Error Message': z.string().optional()
-	})
-	.passthrough();
-
-export type MarketStatusSource = 'live' | 'schedule' | 'unavailable';
+export type ConfiguredMarket = MarketWatchlist & {
+	market: SupportedMarket;
+};
 
 export type MarketStatus = {
-	marketType: string;
-	region: string;
-	primaryExchanges: string;
-	localOpen: string;
-	localClose: string;
-	currentStatus: string;
-	notes: string;
-	statusSource: MarketStatusSource;
-};
-
-export type MarketStatusResult = {
-	markets: MarketStatus[];
-	fetchedAt: Date | null;
-	stale: boolean;
-	error?: string;
+	supportedMarketId: number;
+	title: string;
+	city: string;
+	country: string;
+	description: string;
+	timezone: string;
+	currentStatus: 'open' | 'closed';
+	countdownLabel: string;
+	nextTransitionKind: 'open' | 'close' | 'reopen';
+	hoursLabel: string;
+	supplementalDetail: string | null;
 };
 
 export type WatchedMarketStatus = MarketStatus & {
 	id: number;
-	displayName: string;
-	sortOrder: number;
 	hidden: boolean;
-	isOpen: boolean;
-	isUnknown: boolean;
+	sortOrder: number;
 };
 
 export type HolidayLookup = {
-	dates: Set<string>;
+	namesByDate: Map<string, string>;
 	available: boolean;
 };
 
-export function parseMarketStatusResponse(payload: unknown): MarketStatus[] {
-	const parsed = alphaVantageMarketStatusSchema.safeParse(payload);
-	if (!parsed.success) {
-		const errorPayload = alphaVantageErrorSchema.safeParse(payload);
-		const message = errorPayload.success
-			? (errorPayload.data.Information ??
-				errorPayload.data.Note ??
-				errorPayload.data['Error Message'])
-			: undefined;
-		throw new Error(message ?? 'Alpha Vantage market status response did not include markets');
+const holidayCache = new Map<string, HolidayLookup>();
+const weekdayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+export async function getConfiguredMarkets(includeHidden = true): Promise<ConfiguredMarket[]> {
+	const rows = includeHidden
+		? await db
+				.select({ watchlist: marketWatchlist, market: supportedMarket })
+				.from(marketWatchlist)
+				.innerJoin(supportedMarket, eq(marketWatchlist.supportedMarketId, supportedMarket.id))
+				.orderBy(asc(marketWatchlist.sortOrder), asc(supportedMarket.title))
+		: await db
+				.select({ watchlist: marketWatchlist, market: supportedMarket })
+				.from(marketWatchlist)
+				.innerJoin(supportedMarket, eq(marketWatchlist.supportedMarketId, supportedMarket.id))
+				.where(eq(marketWatchlist.hidden, false))
+				.orderBy(asc(marketWatchlist.sortOrder), asc(supportedMarket.title));
+
+	return rows.map(({ watchlist, market }) => ({ ...watchlist, market }));
+}
+
+export async function getSupportedMarkets(): Promise<SupportedMarket[]> {
+	return db.select().from(supportedMarket).orderBy(asc(supportedMarket.title));
+}
+
+export function unconfiguredSupportedMarkets(
+	watchlist: Pick<MarketWatchlist, 'supportedMarketId'>[],
+	markets: SupportedMarket[]
+): SupportedMarket[] {
+	const configuredIds = new Set(watchlist.map((market) => market.supportedMarketId));
+	return markets.filter((market) => !configuredIds.has(market.id));
+}
+
+export function marketOptionLabel(market: SupportedMarket): string {
+	return `${market.title} · ${market.city}, ${market.country}`;
+}
+
+export async function getWatchedMarketStatuses(now = new Date()): Promise<WatchedMarketStatus[]> {
+	const configuredMarkets = await getConfiguredMarkets(false);
+	return buildWatchedMarketStatuses(
+		configuredMarkets,
+		await loadScheduleDefinitions(configuredMarkets.map((market) => market.supportedMarketId)),
+		now
+	);
+}
+
+export async function loadScheduleDefinitions(
+	marketIds: number[]
+): Promise<Map<number, ScheduleDefinition>> {
+	if (marketIds.length === 0) return new Map();
+
+	const [markets, sessions, closures] = await Promise.all([
+		db.select().from(supportedMarket).where(inArray(supportedMarket.id, marketIds)),
+		db
+			.select()
+			.from(supportedMarketSession)
+			.where(inArray(supportedMarketSession.marketId, marketIds))
+			.orderBy(asc(supportedMarketSession.marketId), asc(supportedMarketSession.sortOrder)),
+		db
+			.select()
+			.from(supportedMarketClosure)
+			.where(inArray(supportedMarketClosure.marketId, marketIds))
+			.orderBy(
+				asc(supportedMarketClosure.marketId),
+				asc(supportedMarketClosure.closureDate),
+				asc(supportedMarketClosure.sortOrder)
+			)
+	]);
+
+	const sessionsByMarket = new Map<number, SessionWindow[]>();
+	for (const session of sessions) {
+		const rows = sessionsByMarket.get(session.marketId) ?? [];
+		rows.push({
+			startTime: session.startTime,
+			endTime: session.endTime,
+			sortOrder: session.sortOrder
+		});
+		sessionsByMarket.set(session.marketId, rows);
 	}
 
-	return parsed.data.markets.map((market) => ({
-		marketType: market.market_type,
-		region: market.region,
-		primaryExchanges: market.primary_exchanges,
-		localOpen: market.local_open,
-		localClose: market.local_close,
-		currentStatus: market.current_status.toLowerCase(),
-		notes: market.notes,
-		statusSource: 'live'
-	}));
-}
+	const closuresByMarket = new Map<number, ClosureOverride[]>();
+	for (const closure of closures) {
+		const rows = closuresByMarket.get(closure.marketId) ?? [];
+		rows.push({
+			closureDate: closure.closureDate,
+			kind: closure.kind as ClosureOverride['kind'],
+			reason: closure.reason,
+			sortOrder: closure.sortOrder,
+			startTime: closure.startTime,
+			endTime: closure.endTime
+		});
+		closuresByMarket.set(closure.marketId, rows);
+	}
 
-export function marketStatusKey(marketType: string, region: string): string {
-	return `${marketType.trim().toLowerCase()}::${region.trim().toLowerCase()}`;
-}
-
-export function marketDisplayName(status: Pick<MarketStatus, 'marketType' | 'region'>): string {
-	if (status.region.toLowerCase() === 'global') return status.marketType;
-	return status.region;
-}
-
-export function marketOptionLabel(status: MarketStatus): string {
-	return `${status.marketType} · ${status.region} · ${status.primaryExchanges}`;
-}
-
-export function unconfiguredMarketStatuses(
-	watchlist: Pick<MarketWatchlist, 'marketType' | 'region'>[],
-	statuses: MarketStatus[]
-): MarketStatus[] {
-	const configuredKeys = new Set(
-		watchlist.map((market) => marketStatusKey(market.marketType, market.region))
-	);
-	return statuses.filter(
-		(status) => !configuredKeys.has(marketStatusKey(status.marketType, status.region))
+	return new Map(
+		markets.map((market) => [
+			market.id,
+			{
+				...market,
+				sessions: sessionsByMarket.get(market.id) ?? [],
+				closures: closuresByMarket.get(market.id) ?? []
+			}
+		])
 	);
 }
 
 export function buildWatchedMarketStatuses(
-	watchlist: MarketWatchlist[],
-	statuses: MarketStatus[]
+	watchlist: ConfiguredMarket[],
+	schedules: Map<number, ScheduleDefinition>,
+	now = new Date()
 ): WatchedMarketStatus[] {
-	const statusesByKey = new Map(
-		statuses.map((status) => [marketStatusKey(status.marketType, status.region), status])
-	);
-
-	return watchlist.flatMap((market) => {
-		const status = statusesByKey.get(marketStatusKey(market.marketType, market.region));
-		if (!status) {
-			return [
-				{
-					id: market.id,
-					displayName: market.displayName,
-					sortOrder: market.sortOrder,
-					hidden: market.hidden,
-					marketType: market.marketType,
-					region: market.region,
-					primaryExchanges: 'Status unavailable',
-					localOpen: '--:--',
-					localClose: '--:--',
-					currentStatus: 'unavailable',
-					notes: '',
-					statusSource: 'unavailable',
-					isOpen: false,
-					isUnknown: true
-				}
-			];
-		}
-
-		const currentStatus = status.currentStatus.toLowerCase();
-		return [
-			{
-				...status,
-				id: market.id,
-				displayName: market.displayName,
-				sortOrder: market.sortOrder,
-				hidden: market.hidden,
-				isOpen: currentStatus === 'open',
-				isUnknown: currentStatus !== 'open' && currentStatus !== 'closed'
-			}
-		];
-	});
-}
-
-export async function getMarketStatuses(
-	maxAgeMs = MARKET_STATUS_MAX_AGE_MS
-): Promise<MarketStatusResult> {
-	const requestNow = new Date();
-	const [cached] = await db
-		.select()
-		.from(marketStatusCache)
-		.where(eq(marketStatusCache.key, MARKET_STATUS_CACHE_KEY))
-		.limit(1);
-
-	const now = Date.now();
-	const cachedFetchedAt = cached?.fetchedAt ?? null;
-	if (cached && cachedFetchedAt && now - cachedFetchedAt.getTime() < maxAgeMs) {
-		try {
-			return withScheduledMarkets(
-				{
-					markets: parseMarketStatusResponse(cached.data),
-					fetchedAt: cachedFetchedAt,
-					stale: false
-				},
-				requestNow
+	return watchlist.map((entry) => {
+		const schedule = schedules.get(entry.supportedMarketId);
+		if (!schedule) {
+			throw new Error(
+				`Missing schedule definition for supported market ${entry.supportedMarketId}`
 			);
-		} catch {
-			// Ignore invalid cached payloads and try a live refresh below.
-		}
-	}
-
-	const apiKey = env.ALPHA_VANTAGE_API_KEY?.trim();
-	if (!apiKey) {
-		return withScheduledMarkets(fallbackMarketStatus(cached, 'missing-api-key'), requestNow);
-	}
-
-	try {
-		const url = new URL('https://www.alphavantage.co/query');
-		url.searchParams.set('function', 'MARKET_STATUS');
-		url.searchParams.set('apikey', apiKey);
-
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`Alpha Vantage returned HTTP ${response.status}`);
 		}
 
-		const payload: unknown = await response.json();
-		const markets = parseMarketStatusResponse(payload);
-		const fetchedAt = new Date();
-
-		await db
-			.insert(marketStatusCache)
-			.values({ key: MARKET_STATUS_CACHE_KEY, data: payload, fetchedAt })
-			.onConflictDoUpdate({
-				target: marketStatusCache.key,
-				set: { data: payload, fetchedAt }
-			});
-
-		return withScheduledMarkets({ markets, fetchedAt, stale: false }, requestNow);
-	} catch (error) {
-		return withScheduledMarkets(
-			fallbackMarketStatus(
-				cached,
-				error instanceof Error ? error.message : 'market-status-fetch-failed'
-			),
-			requestNow
-		);
-	}
-}
-
-function fallbackMarketStatus(
-	cached: typeof marketStatusCache.$inferSelect | undefined,
-	error: string
-): MarketStatusResult {
-	if (!cached) {
-		return { markets: [], fetchedAt: null, stale: true, error };
-	}
-
-	try {
+		const status = buildMarketStatus(schedule, now);
 		return {
-			markets: parseMarketStatusResponse(cached.data),
-			fetchedAt: cached.fetchedAt,
-			stale: true,
-			error
+			...status,
+			id: entry.id,
+			hidden: entry.hidden,
+			sortOrder: entry.sortOrder
 		};
-	} catch {
-		return { markets: [], fetchedAt: cached.fetchedAt, stale: true, error };
-	}
-}
-
-function withScheduledMarkets(result: MarketStatusResult, now: Date): MarketStatusResult {
-	const scheduled = SCHEDULE_MARKETS.map((market) => {
-		const { year } = localDateTimeParts(now, market.timeZone);
-		return buildScheduledMarketStatus(
-			market,
-			now,
-			getHolidays(market.countryCode, year, market.timeZone)
-		);
 	});
-	return {
-		...result,
-		markets: [...result.markets, ...scheduled]
-	};
 }
 
-export function buildScheduledMarketStatus(
-	market: ScheduleMarket,
-	now: Date,
-	holidays: HolidayLookup
-): MarketStatus {
-	const local = localDateTimeParts(now, market.timeZone);
-	const isWeekend = local.weekday === 'Sat' || local.weekday === 'Sun';
-	const isHoliday = holidays.available && holidays.dates.has(local.date);
-	const isPotentiallyOpen =
-		minutesFromTime(market.localOpen) <= local.minutes &&
-		local.minutes <= minutesFromTime(market.localClose);
+export function buildMarketStatus(market: ScheduleDefinition, now: Date): MarketStatus {
+	const local = localDateTimeParts(now, market.timezone);
+	const today = dayScheduleForDate(market, local.date);
+	const displaySessions = today.sessions.length > 0 ? today.sessions : market.sessions;
+	const hoursLabel = formatHoursLabel(displaySessions);
 
-	let currentStatus = 'closed';
-	let notes: string = market.notes;
+	for (let index = 0; index < today.sessions.length; index += 1) {
+		const session = today.sessions[index];
+		const startMinutes = minutesFromTime(session.startTime);
+		const endMinutes = minutesFromTime(session.endTime);
 
-	if (!isWeekend && isPotentiallyOpen) {
-		if (!holidays.available) {
-			currentStatus = 'unknown';
-			notes = 'Schedule-based · holiday lookup unavailable';
-		} else if (!isHoliday) {
-			currentStatus = 'open';
+		if (local.minutes < startMinutes) {
+			return {
+				supportedMarketId: market.id,
+				title: market.title,
+				city: market.city,
+				country: market.country,
+				description: market.description,
+				timezone: market.timezone,
+				currentStatus: 'closed',
+				countdownLabel: countdownLabel(
+					index === 0 ? 'open' : 'reopen',
+					zonedDateTimeToUtc(today.date, session.startTime, market.timezone),
+					now
+				),
+				nextTransitionKind: index === 0 ? 'open' : 'reopen',
+				hoursLabel,
+				supplementalDetail:
+					index === 0
+						? detailForToday(today)
+						: breakDetail(today.sessions[index - 1]!.endTime, session.startTime)
+			};
+		}
+
+		if (local.minutes < endMinutes) {
+			return {
+				supportedMarketId: market.id,
+				title: market.title,
+				city: market.city,
+				country: market.country,
+				description: market.description,
+				timezone: market.timezone,
+				currentStatus: 'open',
+				countdownLabel: countdownLabel(
+					'close',
+					zonedDateTimeToUtc(today.date, session.endTime, market.timezone),
+					now
+				),
+				nextTransitionKind: 'close',
+				hoursLabel,
+				supplementalDetail: detailForOpenSession(today, index)
+			};
 		}
 	}
 
+	const nextOpening = findNextOpening(market, addDays(today.date, 1));
+	const skippedDetail = nextOpening.firstSkippedReason
+		? closureDetail(nextOpening.firstSkippedReason)
+		: null;
+
 	return {
-		marketType: market.marketType,
-		region: market.region,
-		primaryExchanges: market.primaryExchanges,
-		localOpen: market.localOpen,
-		localClose: market.localClose,
-		currentStatus,
-		notes,
-		statusSource: 'schedule'
+		supportedMarketId: market.id,
+		title: market.title,
+		city: market.city,
+		country: market.country,
+		description: market.description,
+		timezone: market.timezone,
+		currentStatus: 'closed',
+		countdownLabel: countdownLabel(
+			'open',
+			zonedDateTimeToUtc(nextOpening.date, nextOpening.session.startTime, market.timezone),
+			now
+		),
+		nextTransitionKind: 'open',
+		hoursLabel,
+		supplementalDetail: today.sessions.length === 0 ? detailForToday(today) : skippedDetail
 	};
 }
 
-const holidayCache = new Map<string, HolidayLookup>();
-
-/**
- * Resolve public holidays for a country/year offline via `date-holidays`.
- * Only `public` holidays are treated as market closures (observances are ignored).
- */
-export function getHolidays(countryCode: string, year: number, timeZone: string): HolidayLookup {
-	const cacheKey = `${countryCode}-${year}`;
+export function getHolidays(
+	holidayCalendarCode: string,
+	year: number,
+	timeZone: string
+): HolidayLookup {
+	const cacheKey = `${holidayCalendarCode}-${year}`;
 	const cached = holidayCache.get(cacheKey);
 	if (cached) return cached;
 
 	try {
-		const hd = new Holidays(countryCode, { timezone: timeZone });
-		const dates = new Set(
-			hd
-				.getHolidays(year)
-				.filter((holiday) => holiday.type === 'public')
-				.map((holiday) => holiday.date.slice(0, 10))
-		);
-		const lookup: HolidayLookup = { dates, available: true };
+		const hd = new Holidays(holidayCalendarCode, { timezone: timeZone });
+		const namesByDate = new Map<string, string>();
+
+		for (const holiday of hd.getHolidays(year)) {
+			if (holiday.type !== 'public') continue;
+			if (!namesByDate.has(holiday.date.slice(0, 10))) {
+				namesByDate.set(holiday.date.slice(0, 10), holiday.name);
+			}
+		}
+
+		const lookup = { namesByDate, available: true };
 		holidayCache.set(cacheKey, lookup);
 		return lookup;
 	} catch {
-		return { dates: new Set(), available: false };
+		return { namesByDate: new Map(), available: false };
 	}
+}
+
+function dayScheduleForDate(market: ScheduleDefinition, date: string): DaySchedule {
+	const overrides = market.closures.filter((closure) => closure.closureDate === date);
+	const specialSessions = overrides
+		.filter((closure) => closure.kind === 'session')
+		.map((closure) => ({
+			startTime: closure.startTime ?? '00:00',
+			endTime: closure.endTime ?? '00:00',
+			sortOrder: closure.sortOrder
+		}))
+		.sort((left, right) => left.sortOrder - right.sortOrder);
+
+	if (specialSessions.length > 0) {
+		return {
+			date,
+			sessions: specialSessions,
+			source: 'special-session',
+			reason: overrides[0]?.reason ?? null
+		};
+	}
+
+	const closedOverride = overrides.find((closure) => closure.kind === 'closed');
+	if (closedOverride) {
+		return {
+			date,
+			sessions: [],
+			source: 'closed',
+			reason: closedOverride.reason
+		};
+	}
+
+	const weekend = weekdayNames[weekdayNumber(date)];
+	if (market.weekendDays.includes(weekend)) {
+		return {
+			date,
+			sessions: [],
+			source: 'weekend',
+			reason: 'Weekend closure'
+		};
+	}
+
+	const holidayName = holidayNameForDate(market, date);
+	if (holidayName) {
+		return {
+			date,
+			sessions: [],
+			source: 'holiday',
+			reason: holidayName
+		};
+	}
+
+	return {
+		date,
+		sessions: [...market.sessions].sort((left, right) => left.sortOrder - right.sortOrder),
+		source: 'regular',
+		reason: null
+	};
+}
+
+function findNextOpening(
+	market: ScheduleDefinition,
+	startDate: string
+): { date: string; session: SessionWindow; firstSkippedReason: string | null } {
+	let firstSkippedReason: string | null = null;
+
+	for (let offset = 0; offset < 400; offset += 1) {
+		const date = addDays(startDate, offset);
+		const schedule = dayScheduleForDate(market, date);
+
+		if (schedule.sessions.length > 0) {
+			return {
+				date,
+				session: schedule.sessions[0]!,
+				firstSkippedReason
+			};
+		}
+
+		if (!firstSkippedReason && schedule.reason) {
+			firstSkippedReason = schedule.reason;
+		}
+	}
+
+	throw new Error(`No upcoming session found for supported market ${market.slug}`);
+}
+
+function holidayNameForDate(market: ScheduleDefinition, date: string): string | null {
+	const year = Number.parseInt(date.slice(0, 4), 10);
+	const holidays = getHolidays(market.holidayCalendarCode, year, market.timezone);
+	return holidays.namesByDate.get(date) ?? null;
+}
+
+function detailForToday(schedule: DaySchedule): string | null {
+	if (schedule.source === 'special-session' && schedule.reason) {
+		return `Special session: ${schedule.reason}.`;
+	}
+
+	if (schedule.source === 'holiday' && schedule.reason) {
+		return `Closed for ${schedule.reason}.`;
+	}
+
+	if (schedule.source === 'closed' && schedule.reason) {
+		return `Closed for ${schedule.reason}.`;
+	}
+
+	if (schedule.source === 'weekend') {
+		return 'Weekend closure.';
+	}
+
+	if (schedule.sessions.length > 1) {
+		return firstBreakDetail(schedule.sessions);
+	}
+
+	return null;
+}
+
+function detailForOpenSession(schedule: DaySchedule, sessionIndex: number): string | null {
+	if (schedule.source === 'special-session' && schedule.reason) {
+		return `Special session: ${schedule.reason}.`;
+	}
+
+	if (schedule.sessions.length > sessionIndex + 1) {
+		return breakDetail(
+			schedule.sessions[sessionIndex]!.endTime,
+			schedule.sessions[sessionIndex + 1]!.startTime
+		);
+	}
+
+	if (schedule.sessions.length > 1) {
+		return firstBreakDetail(schedule.sessions);
+	}
+
+	return null;
+}
+
+function firstBreakDetail(sessions: SessionWindow[]): string | null {
+	if (sessions.length < 2) return null;
+	return breakDetail(sessions[0]!.endTime, sessions[1]!.startTime);
+}
+
+function breakDetail(endTime: string, startTime: string): string {
+	return `Midday break ${endTime}-${startTime} local time.`;
+}
+
+function closureDetail(reason: string): string {
+	return reason === 'Weekend closure' ? 'Weekend closure.' : `Closed for ${reason}.`;
+}
+
+function countdownLabel(kind: 'open' | 'close' | 'reopen', target: Date, now: Date): string {
+	const prefix = kind === 'close' ? 'Closes' : kind === 'reopen' ? 'Reopens' : 'Opens';
+	return `${prefix} in ${formatCountdown(target.getTime() - now.getTime())}`;
+}
+
+function formatCountdown(milliseconds: number): string {
+	const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60_000));
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+}
+
+function formatHoursLabel(sessions: SessionWindow[]): string {
+	return `${sessions.map((session) => `${session.startTime}-${session.endTime}`).join(' · ')} local`;
+}
+
+function minutesFromTime(value: string): number {
+	const [hours, minutes] = value.split(':').map((part) => Number.parseInt(part, 10));
+	return hours * 60 + minutes;
 }
 
 function localDateTimeParts(
 	date: Date,
 	timeZone: string
 ): {
-	year: number;
 	date: string;
-	weekday: string;
 	minutes: number;
 } {
 	const parts = new Intl.DateTimeFormat('en-GB', {
@@ -373,7 +480,6 @@ function localDateTimeParts(
 		year: 'numeric',
 		month: '2-digit',
 		day: '2-digit',
-		weekday: 'short',
 		hour: '2-digit',
 		minute: '2-digit',
 		hourCycle: 'h23'
@@ -386,14 +492,54 @@ function localDateTimeParts(
 	const minute = Number.parseInt(byType.minute, 10);
 
 	return {
-		year,
 		date: `${year}-${month}-${day}`,
-		weekday: byType.weekday,
 		minutes: hour * 60 + minute
 	};
 }
 
-function minutesFromTime(value: string): number {
-	const [hours, minutes] = value.split(':').map((part) => Number.parseInt(part, 10));
-	return hours * 60 + minutes;
+function zonedDateTimeToUtc(date: string, time: string, timeZone: string): Date {
+	const [year, month, day] = date.split('-').map((part) => Number.parseInt(part, 10));
+	const [hour, minute] = time.split(':').map((part) => Number.parseInt(part, 10));
+	const naiveUtcMs = Date.UTC(year, month - 1, day, hour, minute);
+	const firstPass = new Date(
+		naiveUtcMs - timeZoneOffsetMinutes(new Date(naiveUtcMs), timeZone) * 60_000
+	);
+	const correctedOffset = timeZoneOffsetMinutes(firstPass, timeZone);
+	return new Date(naiveUtcMs - correctedOffset * 60_000);
+}
+
+function timeZoneOffsetMinutes(date: Date, timeZone: string): number {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		timeZoneName: 'shortOffset',
+		hour: '2-digit',
+		minute: '2-digit'
+	}).formatToParts(date);
+	const offset = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT';
+	if (offset === 'GMT') return 0;
+
+	const match = /^GMT(?<sign>[+-])(?<hours>\d{1,2})(?::(?<minutes>\d{2}))?$/.exec(offset);
+	if (!match?.groups) return 0;
+
+	const hours = Number.parseInt(match.groups.hours, 10);
+	const minutes = Number.parseInt(match.groups.minutes ?? '0', 10);
+	const total = hours * 60 + minutes;
+	return match.groups.sign === '-' ? -total : total;
+}
+
+function weekdayNumber(date: string): number {
+	const [year, month, day] = date.split('-').map((part) => Number.parseInt(part, 10));
+	return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+function addDays(date: string, days: number): string {
+	const [year, month, day] = date.split('-').map((part) => Number.parseInt(part, 10));
+	const value = new Date(Date.UTC(year, month - 1, day));
+	value.setUTCDate(value.getUTCDate() + days);
+
+	return [
+		value.getUTCFullYear(),
+		String(value.getUTCMonth() + 1).padStart(2, '0'),
+		String(value.getUTCDate()).padStart(2, '0')
+	].join('-');
 }

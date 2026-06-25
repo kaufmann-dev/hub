@@ -13,11 +13,12 @@ admin UI did not provide a way to add or delete market watchlist entries.
 
 ## Fix
 
-- Added an Admin Add Market page that loads supported markets from Alpha Vantage `MARKET_STATUS`.
-- Added a Markets tab "Import supported" action that inserts every Alpha Vantage-supported market not
+- Replaced provider-loaded market discovery with a migration-managed canonical exchange catalog in
+  the database.
+- Added an Admin Add Market page that reads the canonical exchange list directly from the database.
+- Added a Markets tab "Import all canonical markets" action that inserts every canonical exchange not
   already configured.
 - Added delete support for market watchlist rows.
 - Kept individual market edit, hide/show, and drag reorder support.
-- Removed hardcoded market seed rows; Alpha Vantage is the only market/region source.
-- Kept configured markets visible as `Unavailable` when live Alpha Vantage status cannot be fetched.
-- Surfaced the actual Alpha Vantage error in admin instead of the generic "check API key" message.
+- Removed the API-dependent market source entirely; the homepage now computes market state from
+  local exchange metadata, country holidays, and explicit override rows.

@@ -5,12 +5,7 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
 import { marketWatchlist } from '$lib/server/db/schema';
 import { marketCreateSchema } from '$lib/schemas';
-import {
-	getMarketStatuses,
-	marketDisplayName,
-	marketStatusKey,
-	unconfiguredMarketStatuses
-} from '$lib/server/markets';
+import { getSupportedMarkets, unconfiguredSupportedMarkets } from '$lib/server/markets';
 import type { Actions, PageServerLoad } from './$types';
 
 async function nextSortOrder(): Promise<number> {
@@ -23,16 +18,15 @@ async function nextSortOrder(): Promise<number> {
 }
 
 export const load: PageServerLoad = async () => {
-	const [configured, marketStatus] = await Promise.all([
+	const [configured, supportedMarkets] = await Promise.all([
 		db.select().from(marketWatchlist),
-		getMarketStatuses()
+		getSupportedMarkets()
 	]);
-	const availableMarkets = unconfiguredMarketStatuses(configured, marketStatus.markets);
+	const availableMarkets = unconfiguredSupportedMarkets(configured, supportedMarkets);
 
 	return {
 		form: await superValidate(zod4(marketCreateSchema)),
-		availableMarkets,
-		marketStatus
+		availableMarkets
 	};
 };
 
@@ -42,22 +36,20 @@ export const actions: Actions = {
 		const form = await superValidate(request, zod4(marketCreateSchema));
 		if (!form.valid) return fail(400, { form });
 
-		const [configured, marketStatus] = await Promise.all([
+		const [configured, supportedMarkets] = await Promise.all([
 			db.select().from(marketWatchlist),
-			getMarketStatuses()
+			getSupportedMarkets()
 		]);
-		const availableMarkets = unconfiguredMarketStatuses(configured, marketStatus.markets);
+		const availableMarkets = unconfiguredSupportedMarkets(configured, supportedMarkets);
 		const selected = availableMarkets.find(
-			(status) => marketStatusKey(status.marketType, status.region) === form.data.marketKey
+			(market) => market.id === Number.parseInt(form.data.supportedMarketId, 10)
 		);
 		if (!selected) {
 			return fail(400, { form, marketUnavailable: true });
 		}
 
 		await db.insert(marketWatchlist).values({
-			marketType: selected.marketType,
-			region: selected.region,
-			displayName: form.data.displayName ?? marketDisplayName(selected),
+			supportedMarketId: selected.id,
 			hidden: form.data.hidden,
 			sortOrder: await nextSortOrder()
 		});

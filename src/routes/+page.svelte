@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Search, Star, ExternalLink, Settings, Sun, Moon, Landmark } from '@lucide/svelte';
+	import { Search, Star, ExternalLink, Settings, Sun, Moon, Landmark, Info } from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { clock } from '$lib/clock.svelte';
 	import { faviconUrls } from '$lib/favicon';
 	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
@@ -42,13 +43,14 @@
 	const filteredMarkets = $derived(
 		data.markets.filter((m) =>
 			matches(
-				m.displayName,
-				m.region,
-				m.marketType,
-				m.primaryExchanges,
+				m.title,
+				m.city,
+				m.country,
+				m.description,
 				m.currentStatus,
-				m.statusSource,
-				m.notes
+				m.countdownLabel,
+				m.hoursLabel,
+				m.supplementalDetail
 			)
 		)
 	);
@@ -84,21 +86,6 @@
 
 	function marketStatusLabel(status: string): string {
 		return status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
-	}
-
-	function marketSourceLabel(source: string): string | null {
-		if (source === 'schedule') return 'Schedule';
-		if (source === 'unavailable') return 'Unavailable';
-		return null;
-	}
-
-	function marketUpdatedAt(value: Date | string | null): string | null {
-		if (!value) return null;
-		return new Intl.DateTimeFormat('en-GB', {
-			hour: '2-digit',
-			minute: '2-digit',
-			hour12: false
-		}).format(new Date(value));
 	}
 </script>
 
@@ -173,21 +160,12 @@
 		<!-- Market status -->
 		{#if filteredMarkets.length}
 			<section aria-labelledby="markets">
-				<div class="mb-3 flex items-center justify-between gap-3">
-					<h2
-						id="markets"
-						class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
-					>
-						Markets
-					</h2>
-					{#if marketUpdatedAt(data.marketStatusFetchedAt)}
-						<div class="text-muted-foreground text-xs">
-							Updated {marketUpdatedAt(data.marketStatusFetchedAt)}
-							{#if data.marketStatusStale}
-								· stale{/if}
-						</div>
-					{/if}
-				</div>
+				<h2
+					id="markets"
+					class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+				>
+					Markets
+				</h2>
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each filteredMarkets as market (market.id)}
 						<div class="bg-card text-card-foreground rounded-xl border p-4">
@@ -195,51 +173,55 @@
 								<div class="min-w-0">
 									<div class="flex items-center gap-2 font-medium">
 										<Landmark class="text-muted-foreground size-4 shrink-0" />
-										<span class="truncate">{market.displayName}</span>
+										<span class="truncate">{market.title}</span>
 									</div>
 									<div class="text-muted-foreground mt-1 truncate text-sm">
-										{market.primaryExchanges}
+										{market.city}, {market.country}
 									</div>
 								</div>
 								<div class="flex shrink-0 flex-col items-end gap-1">
 									<div
 										class={[
 											'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
-											market.isOpen
+											market.currentStatus === 'open'
 												? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-												: market.isUnknown
-													? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-													: 'text-muted-foreground bg-muted/60'
+												: 'text-muted-foreground bg-muted/60'
 										]}
 									>
 										<span
 											class={[
 												'size-1.5 rounded-full',
-												market.isOpen
+												market.currentStatus === 'open'
 													? 'bg-emerald-500'
-													: market.isUnknown
-														? 'bg-amber-500'
-														: 'bg-muted-foreground/60'
+													: 'bg-muted-foreground/60'
 											]}
 										></span>
 										{marketStatusLabel(market.currentStatus)}
 									</div>
-									{#if marketSourceLabel(market.statusSource)}
-										<div class="text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 text-xs">
-											{marketSourceLabel(market.statusSource)}
-										</div>
-									{/if}
+									<div class="text-muted-foreground text-xs">{market.countdownLabel}</div>
 								</div>
 							</div>
 							<div
 								class="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs"
 							>
-								<span>{market.region}</span>
-								<span class="font-mono tabular-nums">{market.localOpen}-{market.localClose}</span>
+								<span class="truncate">{market.description}</span>
+								<span class="flex items-center gap-1.5">
+									<span class="font-mono tabular-nums">{market.hoursLabel}</span>
+									{#if market.supplementalDetail}
+										<Tooltip.Root>
+											<Tooltip.Trigger
+												class="hover:text-foreground rounded-full p-0.5"
+												aria-label={`Schedule detail for ${market.title}`}
+											>
+												<Info class="size-3.5" />
+											</Tooltip.Trigger>
+											<Tooltip.Content>
+												<p>{market.supplementalDetail}</p>
+											</Tooltip.Content>
+										</Tooltip.Root>
+									{/if}
+								</span>
 							</div>
-							{#if market.notes}
-								<p class="text-muted-foreground mt-2 truncate text-xs">{market.notes}</p>
-							{/if}
 						</div>
 					{/each}
 				</div>

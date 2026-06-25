@@ -34,12 +34,7 @@
 	let refreshingFavicons = $state(false);
 	let faviconStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let importingMarkets = $state(false);
-	// svelte-ignore state_referenced_locally (Initial server-side API status, later updated by actions.)
-	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(
-		data.marketStatus.error
-			? { ok: false, message: `Alpha Vantage: ${data.marketStatus.error}` }
-			: null
-	);
+	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
 	let dragging = $state<{ type: AdminTab; id: number } | null>(null);
@@ -618,16 +613,13 @@
 										ok: true,
 										message:
 											imported === 0
-												? 'All supported markets are already configured.'
-												: `Imported ${imported} markets.`
+												? 'All canonical markets are already configured.'
+												: `Imported ${imported} canonical markets.`
 									};
 								} else if (result.type === 'failure') {
-									const error = result.data?.error as string | undefined;
 									marketImportStatus = {
 										ok: false,
-										message: error
-											? `Market import failed: ${error}`
-											: 'Market import failed. Check server logs.'
+										message: 'Market import failed. Check server logs.'
 									};
 								} else {
 									marketImportStatus = {
@@ -642,7 +634,7 @@
 					>
 						<Button type="submit" variant="outline" size="sm" disabled={importingMarkets}>
 							<RefreshCw class={['size-4', importingMarkets && 'animate-spin']} />
-							{importingMarkets ? 'Importing…' : 'Import supported'}
+							{importingMarkets ? 'Importing…' : 'Import all canonical markets'}
 						</Button>
 					</form>
 					<a href={resolve('/admin/markets')} class={buttonVariants({ size: 'sm' })}>
@@ -667,7 +659,7 @@
 								type="button"
 								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
 								draggable="true"
-								aria-label={`Drag ${market.displayName}`}
+								aria-label={`Drag ${market.market.title}`}
 								disabled={savingReorder === 'markets'}
 								ondragstart={(event) => handleDragStart('markets', market.id, event)}
 								ondragend={() => (dragging = null)}
@@ -675,9 +667,9 @@
 								<GripVertical class="size-4" />
 							</button>
 							<div class="min-w-0 flex-1">
-								<div class="font-medium">{market.displayName}</div>
+								<div class="font-medium">{market.market.title}</div>
 								<div class="text-muted-foreground truncate text-sm">
-									{market.marketType} · {market.region}
+									{market.market.city}, {market.market.country}
 								</div>
 							</div>
 							<form method="POST" action="?/toggleMarketHidden" use:enhance>
@@ -708,7 +700,7 @@
 						</div>
 					{:else}
 						<p class="text-muted-foreground text-sm">
-							No markets configured. Add one market or import every supported market.
+							No markets configured. Add one exchange or import the canonical catalog.
 						</p>
 					{/each}
 				</div>

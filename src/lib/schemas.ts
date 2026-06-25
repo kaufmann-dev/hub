@@ -51,14 +51,16 @@ export const projectSchema = z.object({
 export type ProjectSchema = typeof projectSchema;
 
 export const marketWatchlistSchema = z.object({
-	displayName: z.string().trim().min(1, 'Display name is required'),
 	hidden: z.boolean().default(false)
 });
 export type MarketWatchlistSchema = typeof marketWatchlistSchema;
 
 export const marketCreateSchema = z.object({
-	marketKey: z.string().trim().min(1, 'Market is required'),
-	displayName: optionalText,
+	supportedMarketId: z
+		.string()
+		.trim()
+		.min(1, 'Exchange is required')
+		.regex(/^\d+$/, 'Exchange is required'),
 	hidden: z.boolean().default(false)
 });
 export type MarketCreateSchema = typeof marketCreateSchema;

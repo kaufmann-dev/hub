@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
-import { marketWatchlist } from '$lib/server/db/schema';
+import { marketWatchlist, supportedMarket } from '$lib/server/db/schema';
 import { marketWatchlistSchema } from '$lib/schemas';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -16,17 +16,20 @@ export const load: PageServerLoad = async ({ params }) => {
 	const id = parseId(params.id);
 	if (id === null) error(404, 'Not found');
 
-	const [row] = await db.select().from(marketWatchlist).where(eq(marketWatchlist.id, id));
+	const [row] = await db
+		.select({ watchlist: marketWatchlist, market: supportedMarket })
+		.from(marketWatchlist)
+		.innerJoin(supportedMarket, eq(marketWatchlist.supportedMarketId, supportedMarket.id))
+		.where(eq(marketWatchlist.id, id));
 	if (!row) error(404, 'Market not found');
 
 	const form = await superValidate(
 		{
-			displayName: row.displayName,
-			hidden: row.hidden
+			hidden: row.watchlist.hidden
 		},
 		zod4(marketWatchlistSchema)
 	);
-	return { form, market: row };
+	return { form, market: { ...row.watchlist, market: row.market } };
 };
 
 export const actions: Actions = {
@@ -41,7 +44,6 @@ export const actions: Actions = {
 		await db
 			.update(marketWatchlist)
 			.set({
-				displayName: form.data.displayName,
 				hidden: form.data.hidden,
 				updatedAt: new Date()
 			})
