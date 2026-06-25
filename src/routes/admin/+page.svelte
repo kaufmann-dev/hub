@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
 		Plus,
@@ -19,13 +20,13 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import type { PageData } from './$types';
 
-	type AdminTab = 'websites' | 'projects' | 'cities';
+	type AdminTab = 'websites' | 'projects' | 'cities' | 'markets';
 	type WebsiteKind = 'personal' | 'third_party';
 	type ProjectGroup = 'active' | 'inactive';
 	type DropGroup = WebsiteKind | ProjectGroup;
 	type Row = { id: number };
 
-	const adminTabs = ['websites', 'projects', 'cities'] as const;
+	const adminTabs = ['websites', 'projects', 'cities', 'markets'] as const;
 
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
@@ -38,6 +39,7 @@
 	let websiteOrder = $state.raw<number[] | null>(null);
 	let projectOrder = $state.raw<number[] | null>(null);
 	let cityOrder = $state.raw<number[] | null>(null);
+	let marketOrder = $state.raw<number[] | null>(null);
 	let websiteKindOverrides = $state.raw<Record<string, WebsiteKind>>({});
 	let projectHiddenOverrides = $state.raw<Record<string, boolean>>({});
 	let activeTab = $derived(normalizeTab(page.url.searchParams.get('tab')));
@@ -73,6 +75,7 @@
 		].filter((group) => group.rows.length > 0)
 	);
 	let displayedCities = $derived(orderedRows(data.cities, cityOrder));
+	let displayedMarkets = $derived(orderedRows(data.markets, marketOrder));
 
 	function normalizeTab(tab: string | null): AdminTab {
 		return adminTabs.includes(tab as AdminTab) ? (tab as AdminTab) : 'websites';
@@ -80,9 +83,7 @@
 
 	function setActiveTab(tab: string) {
 		const nextTab = normalizeTab(tab);
-		const url = new URL(page.url);
-		url.searchParams.set('tab', nextTab);
-		replaceState(url, page.state);
+		replaceState(resolve(`/admin?tab=${nextTab}`), page.state);
 	}
 
 	function orderedRows<T extends Row>(rows: T[], order: number[] | null): T[] {
@@ -132,6 +133,7 @@
 			return [...personalWebsites, ...thirdPartyWebsites].map((row) => row.id);
 		}
 		if (type === 'projects') return [...activeProjects, ...inactiveProjects].map((row) => row.id);
+		if (type === 'markets') return displayedMarkets.map((row) => row.id);
 		return displayedCities.map((row) => row.id);
 	}
 
@@ -140,8 +142,10 @@
 			websiteOrder = ids;
 		} else if (type === 'projects') {
 			projectOrder = ids;
-		} else {
+		} else if (type === 'cities') {
 			cityOrder = ids;
+		} else {
+			marketOrder = ids;
 		}
 	}
 
@@ -264,7 +268,7 @@
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
 			<div class="flex items-center gap-3">
 				<a
-					href="/"
+					href={resolve('/')}
 					class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 					aria-label="Back to hub"
 				>
@@ -286,6 +290,7 @@
 				<Tabs.Trigger value="websites">Websites ({data.websites.length})</Tabs.Trigger>
 				<Tabs.Trigger value="projects">Projects ({data.projects.length})</Tabs.Trigger>
 				<Tabs.Trigger value="cities">Cities ({data.cities.length})</Tabs.Trigger>
+				<Tabs.Trigger value="markets">Markets ({data.markets.length})</Tabs.Trigger>
 			</Tabs.List>
 
 			<!-- Websites -->
@@ -325,7 +330,7 @@
 							{refreshingFavicons ? 'Refreshing…' : 'Refresh icons'}
 						</Button>
 					</form>
-					<a href="/admin/websites" class={buttonVariants({ size: 'sm' })}>
+					<a href={resolve('/admin/websites')} class={buttonVariants({ size: 'sm' })}>
 						<Plus class="size-4" /> Add website
 					</a>
 				</div>
@@ -365,7 +370,7 @@
 											<div class="text-muted-foreground truncate text-sm">{site.url}</div>
 										</div>
 										<a
-											href={`/admin/websites/${site.id}`}
+											href={resolve(`/admin/websites/${site.id}`)}
 											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 											aria-label="Edit"
 										>
@@ -509,7 +514,7 @@
 											</Button>
 										</form>
 										<a
-											href={`/admin/projects/${project.id}`}
+											href={resolve(`/admin/projects/${project.id}`)}
 											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 											aria-label="Edit"
 										>
@@ -528,7 +533,7 @@
 			<!-- Cities -->
 			<Tabs.Content value="cities" class="space-y-3">
 				<div class="flex justify-end">
-					<a href="/admin/cities" class={buttonVariants({ size: 'sm' })}>
+					<a href={resolve('/admin/cities')} class={buttonVariants({ size: 'sm' })}>
 						<Plus class="size-4" /> Add city
 					</a>
 				</div>
@@ -561,7 +566,7 @@
 								</div>
 							</div>
 							<a
-								href={`/admin/cities/${c.id}`}
+								href={resolve(`/admin/cities/${c.id}`)}
 								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 								aria-label="Edit"
 							>
@@ -576,6 +581,65 @@
 						</div>
 					{:else}
 						<p class="text-muted-foreground text-sm">No cities yet.</p>
+					{/each}
+				</div>
+			</Tabs.Content>
+
+			<!-- Markets -->
+			<Tabs.Content value="markets" class="space-y-3">
+				{#if reorderError && activeTab === 'markets'}
+					<p class="text-destructive text-sm">{reorderError}</p>
+				{/if}
+				<div class="space-y-3" role="list" aria-label="Markets">
+					{#each displayedMarkets as market (market.id)}
+						<div
+							class={[
+								'bg-card flex items-center gap-3 rounded-lg border p-3',
+								market.hidden && 'opacity-50'
+							]}
+							role="listitem"
+							ondragover={handleDragOver}
+							ondrop={(event) => handleDrop('markets', market.id, event)}
+						>
+							<button
+								type="button"
+								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
+								draggable="true"
+								aria-label={`Drag ${market.displayName}`}
+								disabled={savingReorder === 'markets'}
+								ondragstart={(event) => handleDragStart('markets', market.id, event)}
+								ondragend={() => (dragging = null)}
+							>
+								<GripVertical class="size-4" />
+							</button>
+							<div class="min-w-0 flex-1">
+								<div class="font-medium">{market.displayName}</div>
+								<div class="text-muted-foreground truncate text-sm">
+									{market.marketType} · {market.region}
+								</div>
+							</div>
+							<form method="POST" action="?/toggleMarketHidden" use:enhance>
+								<input type="hidden" name="id" value={market.id} />
+								<input type="hidden" name="hidden" value={(!market.hidden).toString()} />
+								<Button
+									type="submit"
+									variant="ghost"
+									size="icon"
+									aria-label={market.hidden ? 'Show' : 'Hide'}
+								>
+									{#if market.hidden}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
+								</Button>
+							</form>
+							<a
+								href={resolve(`/admin/markets/${market.id}`)}
+								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
+								aria-label="Edit"
+							>
+								<Pencil class="size-4" />
+							</a>
+						</div>
+					{:else}
+						<p class="text-muted-foreground text-sm">No markets configured.</p>
 					{/each}
 				</div>
 			</Tabs.Content>

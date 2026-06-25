@@ -1,5 +1,5 @@
 /**
- * Idempotent seed: inserts the personal websites and the Vienna / New York cities.
+ * Idempotent seed: inserts the personal websites, city clocks, and market watchlist.
  * GitHub projects are NOT seeded — they are populated by syncGithubProjects().
  *
  * Run with:  pnpm db:seed
@@ -8,7 +8,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { eq } from 'drizzle-orm';
-import { website, city } from './schema';
+import { website, city, marketWatchlist } from './schema';
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -17,7 +17,7 @@ if (!DATABASE_URL) {
 }
 
 const client = postgres(DATABASE_URL);
-const db = drizzle(client, { schema: { website, city } });
+const db = drizzle(client, { schema: { website, city, marketWatchlist } });
 
 const websites = [
 	'kaufmann.dev',
@@ -54,6 +54,51 @@ const cities = [
 	}
 ];
 
+const markets = [
+	{
+		marketType: 'Equity',
+		region: 'United States',
+		displayName: 'US Markets',
+		sortOrder: 0
+	},
+	{
+		marketType: 'Equity',
+		region: 'United Kingdom',
+		displayName: 'London',
+		sortOrder: 1
+	},
+	{
+		marketType: 'Equity',
+		region: 'Germany',
+		displayName: 'Germany',
+		sortOrder: 2
+	},
+	{
+		marketType: 'Equity',
+		region: 'Japan',
+		displayName: 'Tokyo',
+		sortOrder: 3
+	},
+	{
+		marketType: 'Equity',
+		region: 'India',
+		displayName: 'India',
+		sortOrder: 4
+	},
+	{
+		marketType: 'Equity',
+		region: 'Mainland China',
+		displayName: 'Mainland China',
+		sortOrder: 5
+	},
+	{
+		marketType: 'Equity',
+		region: 'Hong Kong',
+		displayName: 'Hong Kong',
+		sortOrder: 6
+	}
+];
+
 async function main() {
 	for (const w of websites) {
 		const existing = await db
@@ -71,6 +116,17 @@ async function main() {
 		if (existing.length === 0) {
 			await db.insert(city).values(c);
 			console.log(`+ city ${c.name}`);
+		}
+	}
+
+	for (const m of markets) {
+		const existing = await db
+			.select({ id: marketWatchlist.id })
+			.from(marketWatchlist)
+			.where(eq(marketWatchlist.region, m.region));
+		if (existing.length === 0) {
+			await db.insert(marketWatchlist).values(m);
+			console.log(`+ market ${m.displayName}`);
 		}
 	}
 

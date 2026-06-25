@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Search, Star, ExternalLink, Settings, Sun, Moon } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
+	import { Search, Star, ExternalLink, Settings, Sun, Moon, Landmark } from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
@@ -38,6 +39,11 @@
 			matches(p.name, p.descriptionOverride ?? p.description, p.language, p.fullName)
 		)
 	);
+	const filteredMarkets = $derived(
+		data.markets.filter((m) =>
+			matches(m.displayName, m.region, m.marketType, m.primaryExchanges, m.currentStatus, m.notes)
+		)
+	);
 
 	// "/" focuses the filter unless the user is already typing in a field.
 	function onKeydown(e: KeyboardEvent) {
@@ -67,6 +73,19 @@
 			month: 'short'
 		}).format(clock.now);
 	}
+
+	function marketStatusLabel(status: string): string {
+		return status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
+	}
+
+	function marketUpdatedAt(value: Date | string | null): string | null {
+		if (!value) return null;
+		return new Intl.DateTimeFormat('en-GB', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		}).format(new Date(value));
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -87,7 +106,7 @@
 				<Input
 					bind:ref={filterInput}
 					bind:value={q}
-					placeholder="Filter websites and projects…  (press /)"
+					placeholder="Filter websites, projects and markets…  (press /)"
 					class="pl-9"
 					aria-label="Filter"
 				/>
@@ -96,7 +115,7 @@
 				<Sun class="size-4 dark:hidden" />
 				<Moon class="hidden size-4 dark:block" />
 			</Button>
-			<Button variant="outline" size="sm" href="/admin">
+			<Button variant="outline" size="sm" href={resolve('/admin')}>
 				<Settings class="size-4" />
 				<span class="hidden sm:inline">Admin</span>
 			</Button>
@@ -126,6 +145,75 @@
 						{/if}
 					</div>
 				{/each}
+			</section>
+		{/if}
+
+		<!-- Market status -->
+		{#if filteredMarkets.length}
+			<section aria-labelledby="markets">
+				<div class="mb-3 flex items-center justify-between gap-3">
+					<h2
+						id="markets"
+						class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
+					>
+						Markets
+					</h2>
+					{#if marketUpdatedAt(data.marketStatusFetchedAt)}
+						<div class="text-muted-foreground text-xs">
+							Updated {marketUpdatedAt(data.marketStatusFetchedAt)}
+							{#if data.marketStatusStale}
+								· stale{/if}
+						</div>
+					{/if}
+				</div>
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each filteredMarkets as market (market.id)}
+						<div class="bg-card text-card-foreground rounded-xl border p-4">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<div class="flex items-center gap-2 font-medium">
+										<Landmark class="text-muted-foreground size-4 shrink-0" />
+										<span class="truncate">{market.displayName}</span>
+									</div>
+									<div class="text-muted-foreground mt-1 truncate text-sm">
+										{market.primaryExchanges}
+									</div>
+								</div>
+								<div
+									class={[
+										'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
+										market.isOpen
+											? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+											: market.isUnknown
+												? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+												: 'text-muted-foreground bg-muted/60'
+									]}
+								>
+									<span
+										class={[
+											'size-1.5 rounded-full',
+											market.isOpen
+												? 'bg-emerald-500'
+												: market.isUnknown
+													? 'bg-amber-500'
+													: 'bg-muted-foreground/60'
+										]}
+									></span>
+									{marketStatusLabel(market.currentStatus)}
+								</div>
+							</div>
+							<div
+								class="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs"
+							>
+								<span>{market.region}</span>
+								<span class="font-mono tabular-nums">{market.localOpen}-{market.localClose}</span>
+							</div>
+							{#if market.notes}
+								<p class="text-muted-foreground mt-2 truncate text-xs">{market.notes}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			</section>
 		{/if}
 
@@ -228,7 +316,8 @@
 				<p class="text-muted-foreground text-sm">No projects match "{q}".</p>
 			{:else}
 				<p class="text-muted-foreground text-sm">
-					No projects synced yet. Open <a class="underline" href="/admin">Admin</a> and run a sync.
+					No projects synced yet. Open <a class="underline" href={resolve('/admin')}>Admin</a> and run
+					a sync.
 				</p>
 			{/if}
 		</section>

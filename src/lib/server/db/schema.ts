@@ -6,6 +6,7 @@ import {
 	boolean,
 	timestamp,
 	doublePrecision,
+	jsonb,
 	customType
 } from 'drizzle-orm/pg-core';
 
@@ -74,7 +75,28 @@ export const city = pgTable('city', {
 	sortOrder: integer('sort_order').notNull().default(0)
 });
 
+/** Curated financial markets shown on the hub. */
+export const marketWatchlist = pgTable('market_watchlist', {
+	id: serial('id').primaryKey(),
+	marketType: text('market_type').notNull(),
+	region: text('region').notNull(),
+	displayName: text('display_name').notNull(),
+	hidden: boolean('hidden').notNull().default(false),
+	sortOrder: integer('sort_order').notNull().default(0),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+/** Server-side cache for Alpha Vantage market-status responses. */
+export const marketStatusCache = pgTable('market_status_cache', {
+	key: text('key').primaryKey(),
+	data: jsonb('data').notNull(),
+	fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 export type Website = typeof website.$inferSelect;
 export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
 export type GithubProject = typeof githubProject.$inferSelect;
 export type City = typeof city.$inferSelect;
+export type MarketWatchlist = typeof marketWatchlist.$inferSelect;
+export type MarketStatusCache = typeof marketStatusCache.$inferSelect;

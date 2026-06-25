@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '$lib/server/db';
-import { city, githubProject, website } from '$lib/server/db/schema';
+import { city, githubProject, marketWatchlist, website } from '$lib/server/db/schema';
 import type { RequestHandler } from './$types';
 
 const websiteKindSchema = z.enum(['personal', 'third_party']);
@@ -27,6 +27,12 @@ const reorderSchema = z
 		z
 			.object({
 				type: z.literal('cities'),
+				ids: idsSchema
+			})
+			.strict(),
+		z
+			.object({
+				type: z.literal('markets'),
 				ids: idsSchema
 			})
 			.strict()
@@ -85,6 +91,11 @@ async function currentIdsFor(type: ReorderType): Promise<number[]> {
 		return rows.map((row) => row.id);
 	}
 
+	if (type === 'markets') {
+		const rows = await db.select({ id: marketWatchlist.id }).from(marketWatchlist);
+		return rows.map((row) => row.id);
+	}
+
 	const rows = await db.select({ id: city.id }).from(city);
 	return rows.map((row) => row.id);
 }
@@ -102,6 +113,11 @@ async function setSortOrder(
 
 	if (type === 'projects') {
 		await tx.update(githubProject).set({ sortOrder }).where(eq(githubProject.id, id));
+		return;
+	}
+
+	if (type === 'markets') {
+		await tx.update(marketWatchlist).set({ sortOrder }).where(eq(marketWatchlist.id, id));
 		return;
 	}
 

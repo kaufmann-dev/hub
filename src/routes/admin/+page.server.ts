@@ -1,14 +1,14 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
-import { website, githubProject, city } from '$lib/server/db/schema';
+import { website, githubProject, city, marketWatchlist } from '$lib/server/db/schema';
 import { syncGithubProjects } from '$lib/server/github';
 import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
 import { SESSION_COOKIE } from '$lib/server/auth';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	const [websites, projects, cities] = await Promise.all([
+	const [websites, projects, cities, markets] = await Promise.all([
 		db.select().from(website).orderBy(asc(website.sortOrder), asc(website.title)),
 		db
 			.select()
@@ -19,9 +19,13 @@ export const load: PageServerLoad = async () => {
 				desc(githubProject.stars),
 				asc(githubProject.id)
 			),
-		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name))
+		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name)),
+		db
+			.select()
+			.from(marketWatchlist)
+			.orderBy(asc(marketWatchlist.sortOrder), asc(marketWatchlist.displayName))
 	]);
-	return { websites, projects, cities };
+	return { websites, projects, cities, markets };
 };
 
 function idFrom(form: FormData): number | null {
@@ -53,6 +57,16 @@ export const actions: Actions = {
 		if (!id) return fail(400);
 		const hidden = form.get('hidden') === 'true';
 		await db.update(githubProject).set({ hidden }).where(eq(githubProject.id, id));
+		return { success: true };
+	},
+
+	toggleMarketHidden: async ({ request, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const form = await request.formData();
+		const id = idFrom(form);
+		if (!id) return fail(400);
+		const hidden = form.get('hidden') === 'true';
+		await db.update(marketWatchlist).set({ hidden }).where(eq(marketWatchlist.id, id));
 		return { success: true };
 	},
 

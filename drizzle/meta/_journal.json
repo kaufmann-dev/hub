@@ -29,6 +29,13 @@
       "when": 1781205521725,
       "tag": "0003_tired_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782382300715,
+      "tag": "0004_warm_moon_knight",
+      "breakpoints": true
     }
   ]
 }

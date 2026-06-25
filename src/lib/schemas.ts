@@ -49,3 +49,9 @@ export const projectSchema = z.object({
 	sortOrder: z.coerce.number().int().default(0)
 });
 export type ProjectSchema = typeof projectSchema;
+
+export const marketWatchlistSchema = z.object({
+	displayName: z.string().trim().min(1, 'Display name is required'),
+	hidden: z.boolean().default(false)
+});
+export type MarketWatchlistSchema = typeof marketWatchlistSchema;
