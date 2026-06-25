@@ -261,11 +261,11 @@ describe('market status', () => {
 		).toThrow('The standard API rate limit is 25 requests per day.');
 	});
 
-	it('uses short names for schedule-based markets and market type for global rows', () => {
+	it('uses region as the display name and market type for global rows', () => {
 		expect(marketDisplayName({ marketType: 'Forex', region: 'Global' })).toBe('Forex');
 		expect(marketDisplayName({ marketType: 'Equity', region: 'Germany' })).toBe('Germany');
-		expect(marketDisplayName({ marketType: 'Equity', region: 'South Korea' })).toBe('KRX');
-		expect(marketDisplayName({ marketType: 'Equity', region: 'Taiwan' })).toBe('TWSE');
+		expect(marketDisplayName({ marketType: 'Equity', region: 'South Korea' })).toBe('South Korea');
+		expect(marketDisplayName({ marketType: 'Equity', region: 'Taiwan' })).toBe('Taiwan');
 	});
 
 	it('filters out already configured Alpha Vantage market rows', () => {

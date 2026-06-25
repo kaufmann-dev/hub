@@ -11,7 +11,6 @@ export const MARKET_STATUS_MAX_AGE_MS = 65 * 60 * 1000;
 type ScheduleMarket = {
 	marketType: string;
 	region: string;
-	shortName: string;
 	primaryExchanges: string;
 	localOpen: string;
 	localClose: string;
@@ -26,7 +25,6 @@ export const SCHEDULE_MARKETS: ScheduleMarket[] = [
 	{
 		marketType: 'Equity',
 		region: 'South Korea',
-		shortName: 'KRX',
 		primaryExchanges: 'Korea Exchange (KRX)',
 		localOpen: '09:00',
 		localClose: '15:30',
@@ -37,7 +35,6 @@ export const SCHEDULE_MARKETS: ScheduleMarket[] = [
 	{
 		marketType: 'Equity',
 		region: 'Taiwan',
-		shortName: 'TWSE',
 		primaryExchanges: 'Taiwan Stock Exchange (TWSE)',
 		localOpen: '09:00',
 		localClose: '13:30',
@@ -132,12 +129,6 @@ export function marketStatusKey(marketType: string, region: string): string {
 }
 
 export function marketDisplayName(status: Pick<MarketStatus, 'marketType' | 'region'>): string {
-	const scheduled = SCHEDULE_MARKETS.find(
-		(market) =>
-			market.marketType.toLowerCase() === status.marketType.toLowerCase() &&
-			market.region.toLowerCase() === status.region.toLowerCase()
-	);
-	if (scheduled) return scheduled.shortName;
 	if (status.region.toLowerCase() === 'global') return status.marketType;
 	return status.region;
 }
