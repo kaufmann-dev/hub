@@ -139,26 +139,34 @@
 	<main class="mx-auto w-full max-w-6xl flex-1 space-y-10 px-4 py-8">
 		<!-- City clocks + weather -->
 		{#if data.cities.length}
-			<section class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{#each data.cities as city (city.id)}
-					{@const weather = data.weatherByCity[city.id]}
-					<div
-						class="bg-card text-card-foreground flex items-center justify-between rounded-xl border p-5"
-					>
-						<div>
-							<div class="text-muted-foreground text-sm font-medium">{city.name}</div>
-							<div class="font-mono text-3xl tabular-nums">{timeIn(city.timezone)}</div>
-							<div class="text-muted-foreground text-xs">{dateIn(city.timezone)}</div>
-						</div>
-						{#if weather}
-							<div class="flex flex-col items-center">
-								<WeatherIcon icon={weather.icon} class="text-muted-foreground size-7" />
-								<div class="mt-1 text-xl font-semibold">{weather.temperature}{weather.unit}</div>
-								<div class="text-muted-foreground text-xs">{weather.label}</div>
+			<section aria-labelledby="cities">
+				<h2
+					id="cities"
+					class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+				>
+					Cities
+				</h2>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					{#each data.cities as city (city.id)}
+						{@const weather = data.weatherByCity[city.id]}
+						<div
+							class="bg-card text-card-foreground flex items-center justify-between rounded-xl border p-5"
+						>
+							<div>
+								<div class="text-muted-foreground text-sm font-medium">{city.name}</div>
+								<div class="font-mono text-3xl tabular-nums">{timeIn(city.timezone)}</div>
+								<div class="text-muted-foreground text-xs">{dateIn(city.timezone)}</div>
 							</div>
-						{/if}
-					</div>
-				{/each}
+							{#if weather}
+								<div class="flex flex-col items-center">
+									<WeatherIcon icon={weather.icon} class="text-muted-foreground size-7" />
+									<div class="mt-1 text-xl font-semibold">{weather.temperature}{weather.unit}</div>
+									<div class="text-muted-foreground text-xs">{weather.label}</div>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
 			</section>
 		{/if}
 
