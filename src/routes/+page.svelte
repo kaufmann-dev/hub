@@ -4,7 +4,7 @@
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '$lib/components/ui/input';
 	import { Button } from '$lib/components/ui/button';
-	import * as Tooltip from '$lib/components/ui/tooltip';
+	import * as Popover from '$lib/components/ui/popover';
 	import { clock } from '$lib/clock.svelte';
 	import { faviconUrls } from '$lib/favicon';
 	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
@@ -46,7 +46,6 @@
 				m.title,
 				m.city,
 				m.country,
-				m.description,
 				m.currentStatus,
 				m.countdownLabel,
 				m.hoursLabel,
@@ -204,22 +203,20 @@
 							<div
 								class="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs"
 							>
-								<span class="flex items-center gap-1.5">
-									<span class="font-mono tabular-nums">{market.hoursLabel}</span>
-									{#if market.supplementalDetail}
-										<Tooltip.Root>
-											<Tooltip.Trigger
-												class="hover:text-foreground rounded-full p-0.5"
-												aria-label={`Schedule detail for ${market.title}`}
-											>
-												<Info class="size-3.5" />
-											</Tooltip.Trigger>
-											<Tooltip.Content>
-												<p>{market.supplementalDetail}</p>
-											</Tooltip.Content>
-										</Tooltip.Root>
-									{/if}
-								</span>
+								<span class="font-mono tabular-nums">{market.hoursLabel}</span>
+								{#if market.supplementalDetail}
+									<Popover.Root>
+										<Popover.Trigger
+											class="hover:text-foreground -m-2 shrink-0 rounded-full p-2"
+											aria-label={`Schedule detail for ${market.title}`}
+										>
+											<Info class="size-3.5" />
+										</Popover.Trigger>
+										<Popover.Content class="w-auto max-w-72 text-xs">
+											<p>{market.supplementalDetail}</p>
+										</Popover.Content>
+									</Popover.Root>
+								{/if}
 							</div>
 						</div>
 					{/each}

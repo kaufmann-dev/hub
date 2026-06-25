@@ -37,7 +37,6 @@ function createMarket(overrides: Partial<SupportedMarket> = {}): SupportedMarket
 		city: 'New York',
 		country: 'United States',
 		timezone: 'America/New_York',
-		description: 'New York Stock Exchange',
 		holidayCalendarCode: 'US',
 		weekendDays: ['sat', 'sun'],
 		...overrides
@@ -111,7 +110,6 @@ const tokyo = createScheduleFixture(
 		city: 'Tokyo',
 		country: 'Japan',
 		timezone: 'Asia/Tokyo',
-		description: 'Tokyo Stock Exchange cash equities',
 		holidayCalendarCode: 'JP'
 	},
 	[
@@ -128,7 +126,6 @@ const krx = createScheduleFixture(
 		city: 'Seoul',
 		country: 'South Korea',
 		timezone: 'Asia/Seoul',
-		description: 'Korea Exchange cash market',
 		holidayCalendarCode: 'KR'
 	},
 	[{ startTime: '09:00', endTime: '15:30', sortOrder: 0 }]

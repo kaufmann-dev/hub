@@ -46,7 +46,6 @@ export type MarketStatus = {
 	title: string;
 	city: string;
 	country: string;
-	description: string;
 	timezone: string;
 	currentStatus: 'open' | 'closed';
 	countdownLabel: string;
@@ -211,7 +210,6 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 				title: market.title,
 				city: market.city,
 				country: market.country,
-				description: market.description,
 				timezone: market.timezone,
 				currentStatus: 'closed',
 				countdownLabel: countdownLabel(
@@ -234,7 +232,6 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 				title: market.title,
 				city: market.city,
 				country: market.country,
-				description: market.description,
 				timezone: market.timezone,
 				currentStatus: 'open',
 				countdownLabel: countdownLabel(
@@ -259,7 +256,6 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 		title: market.title,
 		city: market.city,
 		country: market.country,
-		description: market.description,
 		timezone: market.timezone,
 		currentStatus: 'closed',
 		countdownLabel: countdownLabel(

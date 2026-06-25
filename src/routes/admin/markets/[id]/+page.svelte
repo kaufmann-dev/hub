@@ -33,10 +33,6 @@
 		<p class="text-muted-foreground mb-6 pl-12 text-sm">
 			{data.market.market.city}, {data.market.market.country}
 		</p>
-		<div class="bg-muted/40 mb-6 rounded-lg border p-4 text-sm">
-			<p class="font-medium">{data.market.market.title}</p>
-			<p class="text-muted-foreground mt-1">{data.market.market.description}</p>
-		</div>
 
 		<form method="POST" use:enhance class="space-y-4">
 			<Form.Field {form} name="hidden">

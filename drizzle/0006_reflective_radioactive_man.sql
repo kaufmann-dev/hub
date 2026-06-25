@@ -1,0 +1,1 @@
+ALTER TABLE "supported_market" DROP COLUMN "description";

@@ -83,7 +83,6 @@ export const supportedMarket = pgTable('supported_market', {
 	city: text('city').notNull(),
 	country: text('country').notNull(),
 	timezone: text('timezone').notNull(),
-	description: text('description').notNull(),
 	holidayCalendarCode: text('holiday_calendar_code').notNull(),
 	weekendDays: text('weekend_days').array().notNull()
 });

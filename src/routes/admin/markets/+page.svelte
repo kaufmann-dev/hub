@@ -78,7 +78,6 @@
 						<p class="text-muted-foreground mt-1">
 							{selectedMarket.city}, {selectedMarket.country}
 						</p>
-						<p class="text-muted-foreground mt-1">{selectedMarket.description}</p>
 					</div>
 				{/if}
 
