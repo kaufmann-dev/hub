@@ -17,6 +17,39 @@
 	let q = $state('');
 	let filterInput = $state<HTMLInputElement | null>(null);
 
+	// Weather is fetched server-side for the first paint, then refreshed on the
+	// client so a long-open tab does not show stale conditions. The server caches
+	// upstream calls (~15 min), so polling here is cheap. `refreshedWeather` holds
+	// the latest client fetch and overrides the server value once available.
+	let refreshedWeather = $state<PageData['weatherByCity'] | null>(null);
+	const weatherByCity = $derived(refreshedWeather ?? data.weatherByCity);
+	const WEATHER_REFRESH_MS = 10 * 60 * 1000;
+
+	async function refreshWeather() {
+		try {
+			const res = await fetch(resolve('/api/weather'));
+			if (!res.ok) return;
+			const body = (await res.json()) as { weatherByCity: PageData['weatherByCity'] };
+			refreshedWeather = body.weatherByCity;
+		} catch {
+			// Best-effort: keep the last known weather on any failure.
+		}
+	}
+
+	$effect(() => {
+		const interval = setInterval(refreshWeather, WEATHER_REFRESH_MS);
+		// Catch up immediately when the tab becomes visible again (timers are
+		// throttled or paused while backgrounded).
+		const onVisible = () => {
+			if (document.visibilityState === 'visible') refreshWeather();
+		};
+		document.addEventListener('visibilitychange', onVisible);
+		return () => {
+			clearInterval(interval);
+			document.removeEventListener('visibilitychange', onVisible);
+		};
+	});
+
 	const needle = $derived(q.trim().toLowerCase());
 
 	function matches(...fields: (string | null | undefined)[]): boolean {
@@ -162,7 +195,7 @@
 				</h2>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{#each data.cities as city (city.id)}
-						{@const weather = data.weatherByCity[city.id]}
+						{@const weather = weatherByCity[city.id]}
 						<div
 							class="bg-card text-card-foreground flex items-center justify-between rounded-xl border p-5"
 						>

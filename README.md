@@ -20,10 +20,12 @@ area for editing everything. It also shows stock-market status cards for curated
 - **Filter bar** (top, sticky) — instantly filters websites + GitHub projects client-side as
   you type. Press `/` to focus it.
 - **Clocks & weather** — one card per city with a live clock (its IANA timezone) and current
-  weather from Open-Meteo. Cities are editable in the database.
+  weather from Open-Meteo that refreshes in the browser (every 10 min and on tab focus), so a
+  long-open tab stays current. Cities are editable in the database.
 - **Market status** — curated stock exchanges backed by a local schedule engine with canonical
   exchange metadata, country-holiday calculation, and explicit exchange override rows for
-  exceptions like special sessions or non-public closures.
+  exceptions like special sessions or non-public closures. The open/closed status and countdown
+  update live in the browser as session boundaries pass.
 - **Websites** — personal/third-party links with automatically discovered, locally cached,
   theme-aware favicons.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
