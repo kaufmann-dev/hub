@@ -2,21 +2,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mock = vi.hoisted(() => {
 	const env: Record<string, string | undefined> = {};
-	let cached: { key: string; data: unknown; fetchedAt: Date } | undefined;
+	type CacheRow = { key: string; data: unknown; fetchedAt: Date };
+	let selectResults: (CacheRow | undefined)[] = [];
 	const upserts: unknown[] = [];
 
 	const db = {
 		select: vi.fn(() => ({
 			from: vi.fn(() => ({
 				where: vi.fn(() => ({
-					limit: vi.fn(async () => (cached ? [cached] : []))
+					limit: vi.fn(async () => {
+						const selected = selectResults.length ? selectResults.shift() : undefined;
+						return selected ? [selected] : [];
+					})
 				}))
 			}))
 		})),
 		insert: vi.fn(() => ({
 			values: vi.fn((value: { key: string; data: unknown; fetchedAt: Date }) => ({
 				onConflictDoUpdate: vi.fn(async () => {
-					cached = value;
 					upserts.push(value);
 				})
 			}))
@@ -27,11 +30,8 @@ const mock = vi.hoisted(() => {
 		db,
 		env,
 		upserts,
-		get cached() {
-			return cached;
-		},
-		setCached(value: typeof cached) {
-			cached = value;
+		setSelectResults(values: (CacheRow | undefined)[]) {
+			selectResults = [...values];
 		}
 	};
 });
@@ -40,8 +40,10 @@ vi.mock('$env/dynamic/private', () => ({ env: mock.env }));
 vi.mock('$lib/server/db', () => ({ db: mock.db }));
 
 const {
+	buildKrxMarketStatus,
 	buildWatchedMarketStatuses,
 	getMarketStatuses,
+	krxHolidayCacheKey,
 	MARKET_STATUS_CACHE_KEY,
 	marketDisplayName,
 	parseMarketStatusResponse,
@@ -72,13 +74,24 @@ const payload = {
 	]
 };
 
+const holidayPayload = [{ date: '2026-01-01', name: "New Year's Day" }];
+
+function cacheRow(key: string, data: unknown, fetchedAt = new Date()): { key: string; data: unknown; fetchedAt: Date } {
+	return { key, data, fetchedAt };
+}
+
+function krxHolidayCache(year = 2026, data: unknown = holidayPayload) {
+	return cacheRow(krxHolidayCacheKey(year), data);
+}
+
 describe('market status', () => {
 	beforeEach(() => {
 		mock.env.ALPHA_VANTAGE_API_KEY = 'test-key';
-		mock.setCached(undefined);
+		mock.setSelectResults([]);
 		mock.upserts.length = 0;
 		vi.clearAllMocks();
 		vi.unstubAllGlobals();
+		vi.useRealTimers();
 	});
 
 	it('parses Alpha Vantage market status responses', () => {
@@ -90,7 +103,8 @@ describe('market status', () => {
 				localOpen: '09:30',
 				localClose: '16:15',
 				currentStatus: 'closed',
-				notes: ''
+				notes: '',
+				statusSource: 'live'
 			},
 			{
 				marketType: 'Equity',
@@ -99,34 +113,37 @@ describe('market status', () => {
 				localOpen: '08:00',
 				localClose: '16:30',
 				currentStatus: 'open',
-				notes: ''
+				notes: '',
+				statusSource: 'live'
 			}
 		]);
 	});
 
 	it('uses fresh cached market status without fetching', async () => {
-		mock.setCached({
-			key: MARKET_STATUS_CACHE_KEY,
-			data: payload,
-			fetchedAt: new Date()
-		});
+		mock.setSelectResults([cacheRow(MARKET_STATUS_CACHE_KEY, payload), krxHolidayCache()]);
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 
 		const result = await getMarketStatuses();
 
 		expect(result.stale).toBe(false);
-		expect(result.markets).toHaveLength(2);
+		expect(result.markets).toHaveLength(3);
+		expect(result.markets.at(-1)).toEqual(
+			expect.objectContaining({
+				region: 'South Korea',
+				primaryExchanges: 'Korea Exchange (KRX)',
+				statusSource: 'schedule'
+			})
+		);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(mock.upserts).toHaveLength(0);
 	});
 
 	it('fetches and caches market status when cache is stale', async () => {
-		mock.setCached({
-			key: MARKET_STATUS_CACHE_KEY,
-			data: payload,
-			fetchedAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
-		});
+		mock.setSelectResults([
+			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+			krxHolidayCache()
+		]);
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload)));
 		vi.stubGlobal('fetch', fetchMock);
 
@@ -139,11 +156,10 @@ describe('market status', () => {
 	});
 
 	it('falls back to stale cache when Alpha Vantage fetch fails', async () => {
-		mock.setCached({
-			key: MARKET_STATUS_CACHE_KEY,
-			data: payload,
-			fetchedAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
-		});
+		mock.setSelectResults([
+			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000)),
+			krxHolidayCache()
+		]);
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response('rate limit', { status: 429 }))
@@ -153,23 +169,23 @@ describe('market status', () => {
 
 		expect(result.stale).toBe(true);
 		expect(result.error).toContain('429');
-		expect(result.markets).toHaveLength(2);
+		expect(result.markets).toHaveLength(3);
 		expect(mock.upserts).toHaveLength(0);
 	});
 
-	it('does not fetch without an API key and no cache', async () => {
+	it('does not fetch Alpha Vantage without an API key and no Alpha cache', async () => {
 		mock.env.ALPHA_VANTAGE_API_KEY = '';
+		mock.setSelectResults([undefined, krxHolidayCache()]);
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 
 		const result = await getMarketStatuses();
 
-		expect(result).toEqual({
-			markets: [],
-			fetchedAt: null,
-			stale: true,
-			error: 'missing-api-key'
-		});
+		expect(result.stale).toBe(true);
+		expect(result.error).toBe('missing-api-key');
+		expect(result.markets).toEqual([
+			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' })
+		]);
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
@@ -225,6 +241,7 @@ describe('market status', () => {
 				displayName: 'Germany',
 				currentStatus: 'unavailable',
 				primaryExchanges: 'Status unavailable',
+				statusSource: 'unavailable',
 				isUnknown: true
 			})
 		]);
@@ -241,6 +258,7 @@ describe('market status', () => {
 	it('uses market type as display name for global Alpha Vantage rows', () => {
 		expect(marketDisplayName({ marketType: 'Forex', region: 'Global' })).toBe('Forex');
 		expect(marketDisplayName({ marketType: 'Equity', region: 'Germany' })).toBe('Germany');
+		expect(marketDisplayName({ marketType: 'Equity', region: 'South Korea' })).toBe('KRX');
 	});
 
 	it('filters out already configured Alpha Vantage market rows', () => {
@@ -253,6 +271,125 @@ describe('market status', () => {
 			expect.objectContaining({
 				marketType: 'Equity',
 				region: 'United Kingdom'
+			})
+		]);
+	});
+
+	it('marks KRX open during regular weekday trading hours', () => {
+		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(),
+			available: true
+		});
+
+		expect(status).toEqual(
+			expect.objectContaining({
+				region: 'South Korea',
+				localOpen: '09:00',
+				localClose: '15:30',
+				currentStatus: 'open',
+				statusSource: 'schedule'
+			})
+		);
+	});
+
+	it('marks KRX closed before open and after close', () => {
+		const holidays = { dates: new Set<string>(), available: true };
+
+		expect(buildKrxMarketStatus(new Date('2026-06-24T23:30:00.000Z'), holidays)).toEqual(
+			expect.objectContaining({ currentStatus: 'closed' })
+		);
+		expect(buildKrxMarketStatus(new Date('2026-06-25T07:00:00.000Z'), holidays)).toEqual(
+			expect.objectContaining({ currentStatus: 'closed' })
+		);
+	});
+
+	it('marks KRX closed on weekends', () => {
+		const status = buildKrxMarketStatus(new Date('2026-06-28T01:00:00.000Z'), {
+			dates: new Set(),
+			available: true
+		});
+
+		expect(status.currentStatus).toBe('closed');
+	});
+
+	it('marks KRX closed on South Korea public holidays', () => {
+		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(['2026-06-25']),
+			available: true
+		});
+
+		expect(status.currentStatus).toBe('closed');
+	});
+
+	it('marks KRX unknown when holiday data is unavailable during potential open hours', () => {
+		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(),
+			available: false
+		});
+
+		expect(status).toEqual(
+			expect.objectContaining({
+				currentStatus: 'unknown',
+				notes: 'Schedule-based · holiday lookup unavailable'
+			})
+		);
+	});
+
+	it('keeps KRX available when Alpha Vantage fetch fails without cached Alpha data', async () => {
+		mock.setSelectResults([undefined, krxHolidayCache()]);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response('upstream error', { status: 502 }))
+		);
+
+		const result = await getMarketStatuses();
+
+		expect(result.stale).toBe(true);
+		expect(result.error).toContain('502');
+		expect(result.markets).toEqual([
+			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' })
+		]);
+	});
+
+	it('filters out already configured KRX from Add Market options', () => {
+		const missing = unconfiguredMarketStatuses(
+			[{ marketType: 'Equity', region: 'South Korea' }],
+			[
+				...parseMarketStatusResponse(payload),
+				buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+					dates: new Set(),
+					available: true
+				})
+			]
+		);
+
+		expect(missing).not.toEqual([
+			expect.objectContaining({
+				marketType: 'Equity',
+				region: 'South Korea'
+			})
+		]);
+		expect(missing).toHaveLength(2);
+	});
+
+	it('fetches and caches South Korea holiday responses under a yearly KRX key', async () => {
+		mock.env.ALPHA_VANTAGE_API_KEY = '';
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-06-25T01:00:00.000Z'));
+		mock.setSelectResults([undefined, undefined]);
+		const fetchMock = vi.fn(async () => new Response(JSON.stringify(holidayPayload)));
+		vi.stubGlobal('fetch', fetchMock);
+
+		const result = await getMarketStatuses();
+
+		expect(result.markets).toEqual([
+			expect.objectContaining({ region: 'South Korea', currentStatus: 'open' })
+		]);
+		expect(fetchMock).toHaveBeenCalledWith('https://date.nager.at/api/v3/PublicHolidays/2026/KR');
+		expect(mock.upserts).toEqual([
+			expect.objectContaining({
+				key: krxHolidayCacheKey(2026),
+				data: holidayPayload
 			})
 		]);
 	});

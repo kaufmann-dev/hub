@@ -41,7 +41,15 @@
 	);
 	const filteredMarkets = $derived(
 		data.markets.filter((m) =>
-			matches(m.displayName, m.region, m.marketType, m.primaryExchanges, m.currentStatus, m.notes)
+			matches(
+				m.displayName,
+				m.region,
+				m.marketType,
+				m.primaryExchanges,
+				m.currentStatus,
+				m.statusSource,
+				m.notes
+			)
 		)
 	);
 
@@ -76,6 +84,12 @@
 
 	function marketStatusLabel(status: string): string {
 		return status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
+	}
+
+	function marketSourceLabel(source: string): string | null {
+		if (source === 'schedule') return 'Schedule';
+		if (source === 'unavailable') return 'Unavailable';
+		return null;
 	}
 
 	function marketUpdatedAt(value: Date | string | null): string | null {
@@ -179,27 +193,34 @@
 										{market.primaryExchanges}
 									</div>
 								</div>
-								<div
-									class={[
-										'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
-										market.isOpen
-											? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-											: market.isUnknown
-												? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-												: 'text-muted-foreground bg-muted/60'
-									]}
-								>
-									<span
+								<div class="flex shrink-0 flex-col items-end gap-1">
+									<div
 										class={[
-											'size-1.5 rounded-full',
+											'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
 											market.isOpen
-												? 'bg-emerald-500'
+												? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
 												: market.isUnknown
-													? 'bg-amber-500'
-													: 'bg-muted-foreground/60'
+													? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+													: 'text-muted-foreground bg-muted/60'
 										]}
-									></span>
-									{marketStatusLabel(market.currentStatus)}
+									>
+										<span
+											class={[
+												'size-1.5 rounded-full',
+												market.isOpen
+													? 'bg-emerald-500'
+													: market.isUnknown
+														? 'bg-amber-500'
+														: 'bg-muted-foreground/60'
+											]}
+										></span>
+										{marketStatusLabel(market.currentStatus)}
+									</div>
+									{#if marketSourceLabel(market.statusSource)}
+										<div class="text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 text-xs">
+											{marketSourceLabel(market.statusSource)}
+										</div>
+									{/if}
 								</div>
 							</div>
 							<div

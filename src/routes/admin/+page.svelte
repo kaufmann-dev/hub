@@ -708,8 +708,7 @@
 						</div>
 					{:else}
 						<p class="text-muted-foreground text-sm">
-							No markets configured. Add one market or import every market returned by Alpha
-							Vantage.
+							No markets configured. Add one market or import every supported market.
 						</p>
 					{/each}
 				</div>

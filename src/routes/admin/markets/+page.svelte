@@ -21,7 +21,8 @@
 	}
 
 	function optionLabel(market: PageData['availableMarkets'][number]): string {
-		return `${market.marketType} · ${market.region} · ${market.primaryExchanges}`;
+		const sourceLabel = market.statusSource === 'schedule' ? ' · Schedule' : '';
+		return `${market.marketType} · ${market.region} · ${market.primaryExchanges}${sourceLabel}`;
 	}
 
 	let selectedMarket = $derived(
@@ -76,7 +77,7 @@
 							/>
 						{/snippet}
 					</Form.Control>
-					<Form.Description>Leave empty to use the Alpha Vantage region name.</Form.Description>
+					<Form.Description>Leave empty to use the supported market display name.</Form.Description>
 					<Form.FieldErrors />
 				</Form.Field>
 
@@ -102,8 +103,8 @@
 		{:else}
 			<div class="rounded-lg border p-4">
 				<p class="text-muted-foreground text-sm">
-					No Alpha Vantage markets are available to add. Configure `ALPHA_VANTAGE_API_KEY` or
-					refresh after the API cache has data.
+					No supported markets are available to add. Configure live market access or refresh
+					after the provider cache has data.
 				</p>
 				<a
 					href={resolve('/admin?tab=markets')}
