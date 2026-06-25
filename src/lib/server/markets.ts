@@ -1,23 +1,51 @@
 import { env } from '$env/dynamic/private';
 import { eq } from 'drizzle-orm';
+import Holidays from 'date-holidays';
 import { z } from 'zod';
 import { db } from '$lib/server/db';
 import { marketStatusCache, type MarketWatchlist } from '$lib/server/db/schema';
 
 export const MARKET_STATUS_CACHE_KEY = 'alpha-vantage-market-status';
 export const MARKET_STATUS_MAX_AGE_MS = 65 * 60 * 1000;
-export const KRX_HOLIDAY_CACHE_KEY_PREFIX = 'nager-date-holidays-KR';
 
-const KRX_MARKET = {
-	marketType: 'Equity',
-	region: 'South Korea',
-	primaryExchanges: 'Korea Exchange (KRX)',
-	localOpen: '09:00',
-	localClose: '15:30',
-	timeZone: 'Asia/Seoul',
-	countryCode: 'KR',
-	notes: 'Schedule-based · South Korea holidays considered'
-} as const;
+type ScheduleMarket = {
+	marketType: string;
+	region: string;
+	shortName: string;
+	primaryExchanges: string;
+	localOpen: string;
+	localClose: string;
+	timeZone: string;
+	/** date-holidays country code, e.g. 'KR', 'TW' */
+	countryCode: string;
+	notes: string;
+};
+
+/** Markets whose open/closed status is computed locally from the clock + public holidays. */
+export const SCHEDULE_MARKETS: ScheduleMarket[] = [
+	{
+		marketType: 'Equity',
+		region: 'South Korea',
+		shortName: 'KRX',
+		primaryExchanges: 'Korea Exchange (KRX)',
+		localOpen: '09:00',
+		localClose: '15:30',
+		timeZone: 'Asia/Seoul',
+		countryCode: 'KR',
+		notes: 'Schedule-based · South Korea holidays considered'
+	},
+	{
+		marketType: 'Equity',
+		region: 'Taiwan',
+		shortName: 'TWSE',
+		primaryExchanges: 'Taiwan Stock Exchange (TWSE)',
+		localOpen: '09:00',
+		localClose: '13:30',
+		timeZone: 'Asia/Taipei',
+		countryCode: 'TW',
+		notes: 'Schedule-based · Taiwan holidays considered'
+	}
+];
 
 const alphaVantageMarketSchema = z.object({
 	market_type: z.string(),
@@ -40,14 +68,6 @@ const alphaVantageErrorSchema = z
 		'Error Message': z.string().optional()
 	})
 	.passthrough();
-
-const nagerHolidaySchema = z.array(
-	z
-		.object({
-			date: z.string()
-		})
-		.passthrough()
-);
 
 export type MarketStatusSource = 'live' | 'schedule' | 'unavailable';
 
@@ -112,12 +132,12 @@ export function marketStatusKey(marketType: string, region: string): string {
 }
 
 export function marketDisplayName(status: Pick<MarketStatus, 'marketType' | 'region'>): string {
-	if (
-		status.marketType.toLowerCase() === KRX_MARKET.marketType.toLowerCase() &&
-		status.region.toLowerCase() === KRX_MARKET.region.toLowerCase()
-	) {
-		return 'KRX';
-	}
+	const scheduled = SCHEDULE_MARKETS.find(
+		(market) =>
+			market.marketType.toLowerCase() === status.marketType.toLowerCase() &&
+			market.region.toLowerCase() === status.region.toLowerCase()
+	);
+	if (scheduled) return scheduled.shortName;
 	if (status.region.toLowerCase() === 'global') return status.marketType;
 	return status.region;
 }
@@ -187,7 +207,7 @@ export function buildWatchedMarketStatuses(
 export async function getMarketStatuses(
 	maxAgeMs = MARKET_STATUS_MAX_AGE_MS
 ): Promise<MarketStatusResult> {
-	const krxNow = new Date();
+	const requestNow = new Date();
 	const [cached] = await db
 		.select()
 		.from(marketStatusCache)
@@ -198,12 +218,14 @@ export async function getMarketStatuses(
 	const cachedFetchedAt = cached?.fetchedAt ?? null;
 	if (cached && cachedFetchedAt && now - cachedFetchedAt.getTime() < maxAgeMs) {
 		try {
-			const holidays = await getKrxHolidays(krxNow);
-			return {
-				markets: [...parseMarketStatusResponse(cached.data), buildKrxMarketStatus(krxNow, holidays)],
-				fetchedAt: cachedFetchedAt,
-				stale: false
-			};
+			return withScheduledMarkets(
+				{
+					markets: parseMarketStatusResponse(cached.data),
+					fetchedAt: cachedFetchedAt,
+					stale: false
+				},
+				requestNow
+			);
 		} catch {
 			// Ignore invalid cached payloads and try a live refresh below.
 		}
@@ -211,7 +233,7 @@ export async function getMarketStatuses(
 
 	const apiKey = env.ALPHA_VANTAGE_API_KEY?.trim();
 	if (!apiKey) {
-		return withScheduledMarkets(await fallbackMarketStatus(cached, 'missing-api-key'), krxNow);
+		return withScheduledMarkets(fallbackMarketStatus(cached, 'missing-api-key'), requestNow);
 	}
 
 	try {
@@ -236,14 +258,14 @@ export async function getMarketStatuses(
 				set: { data: payload, fetchedAt }
 			});
 
-		return withScheduledMarkets({ markets, fetchedAt, stale: false }, krxNow);
+		return withScheduledMarkets({ markets, fetchedAt, stale: false }, requestNow);
 	} catch (error) {
 		return withScheduledMarkets(
 			fallbackMarketStatus(
 				cached,
 				error instanceof Error ? error.message : 'market-status-fetch-failed'
 			),
-			krxNow
+			requestNow
 		);
 	}
 }
@@ -268,103 +290,88 @@ function fallbackMarketStatus(
 	}
 }
 
-async function withScheduledMarkets(
-	result: MarketStatusResult,
-	now: Date
-): Promise<MarketStatusResult> {
-	const holidays = await getKrxHolidays(now);
+function withScheduledMarkets(result: MarketStatusResult, now: Date): MarketStatusResult {
+	const scheduled = SCHEDULE_MARKETS.map((market) => {
+		const { year } = localDateTimeParts(now, market.timeZone);
+		return buildScheduledMarketStatus(
+			market,
+			now,
+			getHolidays(market.countryCode, year, market.timeZone)
+		);
+	});
 	return {
 		...result,
-		markets: [...result.markets, buildKrxMarketStatus(now, holidays)]
+		markets: [...result.markets, ...scheduled]
 	};
 }
 
-export function buildKrxMarketStatus(now: Date, holidays: HolidayLookup): MarketStatus {
-	const local = localDateTimeParts(now, KRX_MARKET.timeZone);
+export function buildScheduledMarketStatus(
+	market: ScheduleMarket,
+	now: Date,
+	holidays: HolidayLookup
+): MarketStatus {
+	const local = localDateTimeParts(now, market.timeZone);
 	const isWeekend = local.weekday === 'Sat' || local.weekday === 'Sun';
 	const isHoliday = holidays.available && holidays.dates.has(local.date);
 	const isPotentiallyOpen =
-		minutesFromTime(KRX_MARKET.localOpen) <= local.minutes &&
-		local.minutes <= minutesFromTime(KRX_MARKET.localClose);
+		minutesFromTime(market.localOpen) <= local.minutes &&
+		local.minutes <= minutesFromTime(market.localClose);
 
 	let currentStatus = 'closed';
-	let notes = KRX_MARKET.notes;
+	let notes: string = market.notes;
 
-	if (!isWeekend && !isHoliday && isPotentiallyOpen) {
-		currentStatus = holidays.available ? 'open' : 'unknown';
+	if (!isWeekend && isPotentiallyOpen) {
 		if (!holidays.available) {
+			currentStatus = 'unknown';
 			notes = 'Schedule-based · holiday lookup unavailable';
+		} else if (!isHoliday) {
+			currentStatus = 'open';
 		}
-	} else if (!holidays.available && !isWeekend && isPotentiallyOpen) {
-		currentStatus = 'unknown';
-		notes = 'Schedule-based · holiday lookup unavailable';
 	}
 
 	return {
-		marketType: KRX_MARKET.marketType,
-		region: KRX_MARKET.region,
-		primaryExchanges: KRX_MARKET.primaryExchanges,
-		localOpen: KRX_MARKET.localOpen,
-		localClose: KRX_MARKET.localClose,
+		marketType: market.marketType,
+		region: market.region,
+		primaryExchanges: market.primaryExchanges,
+		localOpen: market.localOpen,
+		localClose: market.localClose,
 		currentStatus,
 		notes,
 		statusSource: 'schedule'
 	};
 }
 
-async function getKrxHolidays(now: Date): Promise<HolidayLookup> {
-	const year = localDateTimeParts(now, KRX_MARKET.timeZone).year;
-	const cacheKey = krxHolidayCacheKey(year);
-	const [cached] = await db
-		.select()
-		.from(marketStatusCache)
-		.where(eq(marketStatusCache.key, cacheKey))
-		.limit(1);
+const holidayCache = new Map<string, HolidayLookup>();
 
-	const cachedDates = cached ? parseHolidayDates(cached.data) : null;
-	if (cachedDates) {
-		return { dates: cachedDates, available: true };
-	}
+/**
+ * Resolve public holidays for a country/year offline via `date-holidays`.
+ * Only `public` holidays are treated as market closures (observances are ignored).
+ */
+export function getHolidays(countryCode: string, year: number, timeZone: string): HolidayLookup {
+	const cacheKey = `${countryCode}-${year}`;
+	const cached = holidayCache.get(cacheKey);
+	if (cached) return cached;
 
 	try {
-		const response = await fetch(
-			`https://date.nager.at/api/v3/PublicHolidays/${year}/${KRX_MARKET.countryCode}`
+		const hd = new Holidays(countryCode, { timezone: timeZone });
+		const dates = new Set(
+			hd
+				.getHolidays(year)
+				.filter((holiday) => holiday.type === 'public')
+				.map((holiday) => holiday.date.slice(0, 10))
 		);
-		if (!response.ok) {
-			throw new Error(`Nager.Date returned HTTP ${response.status}`);
-		}
-
-		const payload: unknown = await response.json();
-		const dates = parseHolidayDates(payload);
-		if (!dates) {
-			throw new Error('Nager.Date holiday response did not include dates');
-		}
-
-		await db
-			.insert(marketStatusCache)
-			.values({ key: cacheKey, data: payload, fetchedAt: new Date() })
-			.onConflictDoUpdate({
-				target: marketStatusCache.key,
-				set: { data: payload, fetchedAt: new Date() }
-			});
-
-		return { dates, available: true };
+		const lookup: HolidayLookup = { dates, available: true };
+		holidayCache.set(cacheKey, lookup);
+		return lookup;
 	} catch {
-		return cachedDates ? { dates: cachedDates, available: true } : { dates: new Set(), available: false };
+		return { dates: new Set(), available: false };
 	}
 }
 
-export function krxHolidayCacheKey(year: number): string {
-	return `${KRX_HOLIDAY_CACHE_KEY_PREFIX}-${year}`;
-}
-
-function parseHolidayDates(payload: unknown): Set<string> | null {
-	const parsed = nagerHolidaySchema.safeParse(payload);
-	if (!parsed.success) return null;
-	return new Set(parsed.data.map((holiday) => holiday.date));
-}
-
-function localDateTimeParts(date: Date, timeZone: string): {
+function localDateTimeParts(
+	date: Date,
+	timeZone: string
+): {
 	year: number;
 	date: string;
 	weekday: string;

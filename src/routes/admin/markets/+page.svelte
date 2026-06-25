@@ -103,8 +103,8 @@
 		{:else}
 			<div class="rounded-lg border p-4">
 				<p class="text-muted-foreground text-sm">
-					No supported markets are available to add. Configure live market access or refresh
-					after the provider cache has data.
+					No supported markets are available to add. Configure live market access or refresh after
+					the provider cache has data.
 				</p>
 				<a
 					href={resolve('/admin?tab=markets')}

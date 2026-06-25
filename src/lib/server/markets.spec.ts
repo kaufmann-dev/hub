@@ -40,15 +40,19 @@ vi.mock('$env/dynamic/private', () => ({ env: mock.env }));
 vi.mock('$lib/server/db', () => ({ db: mock.db }));
 
 const {
-	buildKrxMarketStatus,
+	buildScheduledMarketStatus,
 	buildWatchedMarketStatuses,
+	getHolidays,
 	getMarketStatuses,
-	krxHolidayCacheKey,
 	MARKET_STATUS_CACHE_KEY,
 	marketDisplayName,
 	parseMarketStatusResponse,
+	SCHEDULE_MARKETS,
 	unconfiguredMarketStatuses
 } = await import('./markets');
+
+// SCHEDULE_MARKETS order: South Korea (KRX), then Taiwan (TWSE).
+const [krxMarket, twseMarket] = SCHEDULE_MARKETS;
 
 const payload = {
 	endpoint: 'Global Market Open & Close Status',
@@ -74,14 +78,12 @@ const payload = {
 	]
 };
 
-const holidayPayload = [{ date: '2026-01-01', name: "New Year's Day" }];
-
-function cacheRow(key: string, data: unknown, fetchedAt = new Date()): { key: string; data: unknown; fetchedAt: Date } {
+function cacheRow(
+	key: string,
+	data: unknown,
+	fetchedAt = new Date()
+): { key: string; data: unknown; fetchedAt: Date } {
 	return { key, data, fetchedAt };
-}
-
-function krxHolidayCache(year = 2026, data: unknown = holidayPayload) {
-	return cacheRow(krxHolidayCacheKey(year), data);
 }
 
 describe('market status', () => {
@@ -120,29 +122,33 @@ describe('market status', () => {
 	});
 
 	it('uses fresh cached market status without fetching', async () => {
-		mock.setSelectResults([cacheRow(MARKET_STATUS_CACHE_KEY, payload), krxHolidayCache()]);
+		mock.setSelectResults([cacheRow(MARKET_STATUS_CACHE_KEY, payload)]);
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 
 		const result = await getMarketStatuses();
 
 		expect(result.stale).toBe(false);
-		expect(result.markets).toHaveLength(3);
-		expect(result.markets.at(-1)).toEqual(
+		expect(result.markets).toHaveLength(4);
+		expect(result.markets.slice(-2)).toEqual([
 			expect.objectContaining({
 				region: 'South Korea',
 				primaryExchanges: 'Korea Exchange (KRX)',
 				statusSource: 'schedule'
+			}),
+			expect.objectContaining({
+				region: 'Taiwan',
+				primaryExchanges: 'Taiwan Stock Exchange (TWSE)',
+				statusSource: 'schedule'
 			})
-		);
+		]);
 		expect(fetchMock).not.toHaveBeenCalled();
 		expect(mock.upserts).toHaveLength(0);
 	});
 
 	it('fetches and caches market status when cache is stale', async () => {
 		mock.setSelectResults([
-			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000)),
-			krxHolidayCache()
+			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000))
 		]);
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify(payload)));
 		vi.stubGlobal('fetch', fetchMock);
@@ -157,8 +163,7 @@ describe('market status', () => {
 
 	it('falls back to stale cache when Alpha Vantage fetch fails', async () => {
 		mock.setSelectResults([
-			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000)),
-			krxHolidayCache()
+			cacheRow(MARKET_STATUS_CACHE_KEY, payload, new Date(Date.now() - 2 * 60 * 60 * 1000))
 		]);
 		vi.stubGlobal(
 			'fetch',
@@ -169,13 +174,13 @@ describe('market status', () => {
 
 		expect(result.stale).toBe(true);
 		expect(result.error).toContain('429');
-		expect(result.markets).toHaveLength(3);
+		expect(result.markets).toHaveLength(4);
 		expect(mock.upserts).toHaveLength(0);
 	});
 
 	it('does not fetch Alpha Vantage without an API key and no Alpha cache', async () => {
 		mock.env.ALPHA_VANTAGE_API_KEY = '';
-		mock.setSelectResults([undefined, krxHolidayCache()]);
+		mock.setSelectResults([undefined]);
 		const fetchMock = vi.fn();
 		vi.stubGlobal('fetch', fetchMock);
 
@@ -184,7 +189,8 @@ describe('market status', () => {
 		expect(result.stale).toBe(true);
 		expect(result.error).toBe('missing-api-key');
 		expect(result.markets).toEqual([
-			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' })
+			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' }),
+			expect.objectContaining({ region: 'Taiwan', statusSource: 'schedule' })
 		]);
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
@@ -255,10 +261,11 @@ describe('market status', () => {
 		).toThrow('The standard API rate limit is 25 requests per day.');
 	});
 
-	it('uses market type as display name for global Alpha Vantage rows', () => {
+	it('uses short names for schedule-based markets and market type for global rows', () => {
 		expect(marketDisplayName({ marketType: 'Forex', region: 'Global' })).toBe('Forex');
 		expect(marketDisplayName({ marketType: 'Equity', region: 'Germany' })).toBe('Germany');
 		expect(marketDisplayName({ marketType: 'Equity', region: 'South Korea' })).toBe('KRX');
+		expect(marketDisplayName({ marketType: 'Equity', region: 'Taiwan' })).toBe('TWSE');
 	});
 
 	it('filters out already configured Alpha Vantage market rows', () => {
@@ -276,7 +283,7 @@ describe('market status', () => {
 	});
 
 	it('marks KRX open during regular weekday trading hours', () => {
-		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+		const status = buildScheduledMarketStatus(krxMarket, new Date('2026-06-25T01:00:00.000Z'), {
 			dates: new Set(),
 			available: true
 		});
@@ -295,16 +302,16 @@ describe('market status', () => {
 	it('marks KRX closed before open and after close', () => {
 		const holidays = { dates: new Set<string>(), available: true };
 
-		expect(buildKrxMarketStatus(new Date('2026-06-24T23:30:00.000Z'), holidays)).toEqual(
-			expect.objectContaining({ currentStatus: 'closed' })
-		);
-		expect(buildKrxMarketStatus(new Date('2026-06-25T07:00:00.000Z'), holidays)).toEqual(
-			expect.objectContaining({ currentStatus: 'closed' })
-		);
+		expect(
+			buildScheduledMarketStatus(krxMarket, new Date('2026-06-24T23:30:00.000Z'), holidays)
+		).toEqual(expect.objectContaining({ currentStatus: 'closed' }));
+		expect(
+			buildScheduledMarketStatus(krxMarket, new Date('2026-06-25T07:00:00.000Z'), holidays)
+		).toEqual(expect.objectContaining({ currentStatus: 'closed' }));
 	});
 
 	it('marks KRX closed on weekends', () => {
-		const status = buildKrxMarketStatus(new Date('2026-06-28T01:00:00.000Z'), {
+		const status = buildScheduledMarketStatus(krxMarket, new Date('2026-06-28T01:00:00.000Z'), {
 			dates: new Set(),
 			available: true
 		});
@@ -313,7 +320,7 @@ describe('market status', () => {
 	});
 
 	it('marks KRX closed on South Korea public holidays', () => {
-		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+		const status = buildScheduledMarketStatus(krxMarket, new Date('2026-06-25T01:00:00.000Z'), {
 			dates: new Set(['2026-06-25']),
 			available: true
 		});
@@ -322,7 +329,7 @@ describe('market status', () => {
 	});
 
 	it('marks KRX unknown when holiday data is unavailable during potential open hours', () => {
-		const status = buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+		const status = buildScheduledMarketStatus(krxMarket, new Date('2026-06-25T01:00:00.000Z'), {
 			dates: new Set(),
 			available: false
 		});
@@ -335,8 +342,72 @@ describe('market status', () => {
 		);
 	});
 
-	it('keeps KRX available when Alpha Vantage fetch fails without cached Alpha data', async () => {
-		mock.setSelectResults([undefined, krxHolidayCache()]);
+	it('marks TWSE open during regular weekday trading hours', () => {
+		// 2026-06-25T01:00Z === 09:00 Asia/Taipei on a Thursday.
+		const status = buildScheduledMarketStatus(twseMarket, new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(),
+			available: true
+		});
+
+		expect(status).toEqual(
+			expect.objectContaining({
+				region: 'Taiwan',
+				localOpen: '09:00',
+				localClose: '13:30',
+				currentStatus: 'open',
+				statusSource: 'schedule'
+			})
+		);
+	});
+
+	it('marks TWSE closed before open and after close', () => {
+		const holidays = { dates: new Set<string>(), available: true };
+
+		// 08:30 Asia/Taipei (before open)
+		expect(
+			buildScheduledMarketStatus(twseMarket, new Date('2026-06-24T23:30:00.000Z'), holidays)
+		).toEqual(expect.objectContaining({ currentStatus: 'closed' }));
+		// 15:00 Asia/Taipei (after 13:30 close)
+		expect(
+			buildScheduledMarketStatus(twseMarket, new Date('2026-06-25T07:00:00.000Z'), holidays)
+		).toEqual(expect.objectContaining({ currentStatus: 'closed' }));
+	});
+
+	it('marks TWSE closed on weekends', () => {
+		// 2026-06-28 is a Sunday.
+		const status = buildScheduledMarketStatus(twseMarket, new Date('2026-06-28T01:00:00.000Z'), {
+			dates: new Set(),
+			available: true
+		});
+
+		expect(status.currentStatus).toBe('closed');
+	});
+
+	it('marks TWSE closed on Taiwan public holidays', () => {
+		const status = buildScheduledMarketStatus(twseMarket, new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(['2026-06-25']),
+			available: true
+		});
+
+		expect(status.currentStatus).toBe('closed');
+	});
+
+	it('marks TWSE unknown when holiday data is unavailable during potential open hours', () => {
+		const status = buildScheduledMarketStatus(twseMarket, new Date('2026-06-25T01:00:00.000Z'), {
+			dates: new Set(),
+			available: false
+		});
+
+		expect(status).toEqual(
+			expect.objectContaining({
+				currentStatus: 'unknown',
+				notes: 'Schedule-based · holiday lookup unavailable'
+			})
+		);
+	});
+
+	it('keeps schedule-based markets available when Alpha Vantage fetch fails without cached data', async () => {
+		mock.setSelectResults([undefined]);
 		vi.stubGlobal(
 			'fetch',
 			vi.fn(async () => new Response('upstream error', { status: 502 }))
@@ -347,50 +418,37 @@ describe('market status', () => {
 		expect(result.stale).toBe(true);
 		expect(result.error).toContain('502');
 		expect(result.markets).toEqual([
-			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' })
+			expect.objectContaining({ region: 'South Korea', statusSource: 'schedule' }),
+			expect.objectContaining({ region: 'Taiwan', statusSource: 'schedule' })
 		]);
 	});
 
-	it('filters out already configured KRX from Add Market options', () => {
+	it('filters out already configured schedule-based markets from Add Market options', () => {
 		const missing = unconfiguredMarketStatuses(
 			[{ marketType: 'Equity', region: 'South Korea' }],
 			[
 				...parseMarketStatusResponse(payload),
-				buildKrxMarketStatus(new Date('2026-06-25T01:00:00.000Z'), {
+				buildScheduledMarketStatus(krxMarket, new Date('2026-06-25T01:00:00.000Z'), {
 					dates: new Set(),
 					available: true
 				})
 			]
 		);
 
-		expect(missing).not.toEqual([
-			expect.objectContaining({
-				marketType: 'Equity',
-				region: 'South Korea'
-			})
-		]);
+		expect(missing.some((status) => status.region === 'South Korea')).toBe(false);
 		expect(missing).toHaveLength(2);
 	});
 
-	it('fetches and caches South Korea holiday responses under a yearly KRX key', async () => {
-		mock.env.ALPHA_VANTAGE_API_KEY = '';
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-06-25T01:00:00.000Z'));
-		mock.setSelectResults([undefined, undefined]);
-		const fetchMock = vi.fn(async () => new Response(JSON.stringify(holidayPayload)));
-		vi.stubGlobal('fetch', fetchMock);
+	it('resolves public holidays offline for South Korea and Taiwan', () => {
+		const korea = getHolidays('KR', 2026, 'Asia/Seoul');
+		const taiwan = getHolidays('TW', 2026, 'Asia/Taipei');
 
-		const result = await getMarketStatuses();
-
-		expect(result.markets).toEqual([
-			expect.objectContaining({ region: 'South Korea', currentStatus: 'open' })
-		]);
-		expect(fetchMock).toHaveBeenCalledWith('https://date.nager.at/api/v3/PublicHolidays/2026/KR');
-		expect(mock.upserts).toEqual([
-			expect.objectContaining({
-				key: krxHolidayCacheKey(2026),
-				data: holidayPayload
-			})
-		]);
+		expect(korea.available).toBe(true);
+		expect(taiwan.available).toBe(true);
+		expect(korea.dates.size).toBeGreaterThan(0);
+		expect(taiwan.dates.size).toBeGreaterThan(0);
+		// New Year's Day / Founding Day is a public holiday in both.
+		expect(korea.dates.has('2026-01-01')).toBe(true);
+		expect(taiwan.dates.has('2026-01-01')).toBe(true);
 	});
 });
