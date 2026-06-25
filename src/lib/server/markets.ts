@@ -21,6 +21,14 @@ const alphaVantageMarketStatusSchema = z.object({
 	markets: z.array(alphaVantageMarketSchema)
 });
 
+const alphaVantageErrorSchema = z
+	.object({
+		Information: z.string().optional(),
+		Note: z.string().optional(),
+		'Error Message': z.string().optional()
+	})
+	.passthrough();
+
 export type MarketStatus = {
 	marketType: string;
 	region: string;
@@ -50,7 +58,13 @@ export type WatchedMarketStatus = MarketStatus & {
 export function parseMarketStatusResponse(payload: unknown): MarketStatus[] {
 	const parsed = alphaVantageMarketStatusSchema.safeParse(payload);
 	if (!parsed.success) {
-		throw new Error('Alpha Vantage market status response did not include markets');
+		const errorPayload = alphaVantageErrorSchema.safeParse(payload);
+		const message = errorPayload.success
+			? (errorPayload.data.Information ??
+				errorPayload.data.Note ??
+				errorPayload.data['Error Message'])
+			: undefined;
+		throw new Error(message ?? 'Alpha Vantage market status response did not include markets');
 	}
 
 	return parsed.data.markets.map((market) => ({
@@ -99,7 +113,25 @@ export function buildWatchedMarketStatuses(
 
 	return watchlist.flatMap((market) => {
 		const status = statusesByKey.get(marketStatusKey(market.marketType, market.region));
-		if (!status) return [];
+		if (!status) {
+			return [
+				{
+					id: market.id,
+					displayName: market.displayName,
+					sortOrder: market.sortOrder,
+					hidden: market.hidden,
+					marketType: market.marketType,
+					region: market.region,
+					primaryExchanges: 'Status unavailable',
+					localOpen: '--:--',
+					localClose: '--:--',
+					currentStatus: 'unavailable',
+					notes: '',
+					isOpen: false,
+					isUnknown: true
+				}
+			];
+		}
 
 		const currentStatus = status.currentStatus.toLowerCase();
 		return [
@@ -128,11 +160,15 @@ export async function getMarketStatuses(
 	const now = Date.now();
 	const cachedFetchedAt = cached?.fetchedAt ?? null;
 	if (cached && cachedFetchedAt && now - cachedFetchedAt.getTime() < maxAgeMs) {
-		return {
-			markets: parseMarketStatusResponse(cached.data),
-			fetchedAt: cachedFetchedAt,
-			stale: false
-		};
+		try {
+			return {
+				markets: parseMarketStatusResponse(cached.data),
+				fetchedAt: cachedFetchedAt,
+				stale: false
+			};
+		} catch {
+			// Ignore invalid cached payloads and try a live refresh below.
+		}
 	}
 
 	const apiKey = env.ALPHA_VANTAGE_API_KEY?.trim();

@@ -34,7 +34,12 @@
 	let refreshingFavicons = $state(false);
 	let faviconStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let importingMarkets = $state(false);
-	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(null);
+	// svelte-ignore state_referenced_locally (Initial server-side API status, later updated by actions.)
+	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(
+		data.marketStatus.error
+			? { ok: false, message: `Alpha Vantage: ${data.marketStatus.error}` }
+			: null
+	);
 	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
 	let dragging = $state<{ type: AdminTab; id: number } | null>(null);
@@ -616,10 +621,18 @@
 												? 'All supported markets are already configured.'
 												: `Imported ${imported} markets.`
 									};
+								} else if (result.type === 'failure') {
+									const error = result.data?.error as string | undefined;
+									marketImportStatus = {
+										ok: false,
+										message: error
+											? `Market import failed: ${error}`
+											: 'Market import failed. Check server logs.'
+									};
 								} else {
 									marketImportStatus = {
 										ok: false,
-										message: 'Market import failed. Check the Alpha Vantage API key.'
+										message: 'Market import failed. Check server logs.'
 									};
 								}
 								await update();

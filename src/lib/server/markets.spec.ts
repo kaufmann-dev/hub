@@ -202,6 +202,42 @@ describe('market status', () => {
 		]);
 	});
 
+	it('keeps configured watchlist rows visible when live status is unavailable', () => {
+		const watched = buildWatchedMarketStatuses(
+			[
+				{
+					id: 2,
+					marketType: 'Equity',
+					region: 'Germany',
+					displayName: 'Germany',
+					hidden: false,
+					sortOrder: 1,
+					createdAt: new Date(),
+					updatedAt: new Date()
+				}
+			],
+			[]
+		);
+
+		expect(watched).toEqual([
+			expect.objectContaining({
+				id: 2,
+				displayName: 'Germany',
+				currentStatus: 'unavailable',
+				primaryExchanges: 'Status unavailable',
+				isUnknown: true
+			})
+		]);
+	});
+
+	it('surfaces Alpha Vantage error payload messages', () => {
+		expect(() =>
+			parseMarketStatusResponse({
+				Information: 'The standard API rate limit is 25 requests per day.'
+			})
+		).toThrow('The standard API rate limit is 25 requests per day.');
+	});
+
 	it('uses market type as display name for global Alpha Vantage rows', () => {
 		expect(marketDisplayName({ marketType: 'Forex', region: 'Global' })).toBe('Forex');
 		expect(marketDisplayName({ marketType: 'Equity', region: 'Germany' })).toBe('Germany');

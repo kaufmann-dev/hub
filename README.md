@@ -50,7 +50,7 @@ Copy `.env.example` to `.env` and fill it in:
 ```bash
 pnpm install
 pnpm db:push      # apply the schema to the dev database
-pnpm db:seed      # seed personal websites, city clocks, and markets (idempotent)
+pnpm db:seed      # seed personal websites and city clocks (idempotent)
 pnpm dev
 ```
 
@@ -76,7 +76,7 @@ pnpm lint         # prettier + eslint
 pnpm build        # production build (adapter-node -> build/)
 pnpm db:push      # push schema (dev)
 pnpm db:generate  # generate SQL migrations (drizzle/)
-pnpm db:seed      # seed websites, cities, and markets
+pnpm db:seed      # seed websites and cities
 pnpm db:studio    # Drizzle Studio
 ```
 
