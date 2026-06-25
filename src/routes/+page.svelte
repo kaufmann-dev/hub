@@ -86,6 +86,34 @@
 	function marketStatusLabel(status: string): string {
 		return status ? status[0].toUpperCase() + status.slice(1) : 'Unknown';
 	}
+
+	type MarketEntry = PageData['markets'][number];
+
+	// The next upcoming transition fully determines the live status and countdown:
+	// a pending `close` means the market is open now; a pending `open`/`reopen`
+	// means it is closed. Recomputed every second via the reactive `now`.
+	function nextTransition(market: MarketEntry, now: Date) {
+		const t = now.getTime();
+		return market.transitions?.find((transition) => transition.at > t) ?? null;
+	}
+
+	function liveStatus(market: MarketEntry, now: Date): 'open' | 'closed' {
+		const next = nextTransition(market, now);
+		if (!next) return market.currentStatus;
+		return next.kind === 'close' ? 'open' : 'closed';
+	}
+
+	function liveCountdown(market: MarketEntry, now: Date): string {
+		const next = nextTransition(market, now);
+		if (!next) return market.countdownLabel;
+		const prefix = next.kind === 'close' ? 'Closes' : next.kind === 'reopen' ? 'Reopens' : 'Opens';
+		const totalMinutes = Math.max(0, Math.ceil((next.at - now.getTime()) / 60_000));
+		const hours = Math.floor(totalMinutes / 60);
+		const minutes = totalMinutes % 60;
+		return `${prefix} in ${hours}h ${minutes.toString().padStart(2, '0')}m`;
+	}
+
+	const now = $derived(clock.now);
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -167,6 +195,7 @@
 				</h2>
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each filteredMarkets as market (market.id)}
+						{@const status = liveStatus(market, now)}
 						<div class="bg-card text-card-foreground rounded-xl border p-4">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
@@ -182,7 +211,7 @@
 									<div
 										class={[
 											'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
-											market.currentStatus === 'open'
+											status === 'open'
 												? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
 												: 'text-muted-foreground bg-muted/60'
 										]}
@@ -190,14 +219,12 @@
 										<span
 											class={[
 												'size-1.5 rounded-full',
-												market.currentStatus === 'open'
-													? 'bg-emerald-500'
-													: 'bg-muted-foreground/60'
+												status === 'open' ? 'bg-emerald-500' : 'bg-muted-foreground/60'
 											]}
 										></span>
-										{marketStatusLabel(market.currentStatus)}
+										{marketStatusLabel(status)}
 									</div>
-									<div class="text-muted-foreground text-xs">{market.countdownLabel}</div>
+									<div class="text-muted-foreground text-xs">{liveCountdown(market, now)}</div>
 								</div>
 							</div>
 							<div

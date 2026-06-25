@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildMarketStatus,
+	buildMarketTransitions,
 	buildWatchedMarketStatuses,
 	getHolidays,
 	type ConfiguredMarket,
@@ -251,6 +252,25 @@ describe('market schedule engine', () => {
 			title: 'Tokyo Stock Exchange',
 			hidden: true
 		});
+	});
+
+	it('emits the next close as the first transition while a market is open', () => {
+		const now = new Date('2026-06-25T18:00:00.000Z');
+		const transitions = buildMarketTransitions(nyse, now);
+
+		expect(transitions.every((transition) => transition.at > now.getTime())).toBe(true);
+		// NYSE 09:30-16:00 EDT closes at 20:00Z, then reopens next day at 13:30Z.
+		expect(transitions[0]).toEqual({ at: Date.UTC(2026, 5, 25, 20, 0), kind: 'close' });
+		expect(transitions[1]).toEqual({ at: Date.UTC(2026, 5, 26, 13, 30), kind: 'open' });
+	});
+
+	it('emits a reopen transition across a midday break', () => {
+		const now = new Date('2026-06-25T03:00:00.000Z');
+		const transitions = buildMarketTransitions(tokyo, now);
+
+		// Tokyo 12:30-15:30 JST second session reopens at 03:30Z, closes at 06:30Z.
+		expect(transitions[0]).toEqual({ at: Date.UTC(2026, 5, 25, 3, 30), kind: 'reopen' });
+		expect(transitions[1]).toEqual({ at: Date.UTC(2026, 5, 25, 6, 30), kind: 'close' });
 	});
 
 	it('loads public holidays for the country-based calendars used by the schedule engine', () => {

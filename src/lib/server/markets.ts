@@ -41,6 +41,12 @@ export type ConfiguredMarket = MarketWatchlist & {
 	market: SupportedMarket;
 };
 
+/** A future open/close/reopen boundary, as an absolute epoch timestamp. */
+export type MarketTransition = {
+	at: number;
+	kind: 'open' | 'close' | 'reopen';
+};
+
 export type MarketStatus = {
 	supportedMarketId: number;
 	title: string;
@@ -52,6 +58,8 @@ export type MarketStatus = {
 	nextTransitionKind: 'open' | 'close' | 'reopen';
 	hoursLabel: string;
 	supplementalDetail: string | null;
+	/** Upcoming transitions so the client can recompute status/countdown live. */
+	transitions: MarketTransition[];
 };
 
 export type WatchedMarketStatus = MarketStatus & {
@@ -193,11 +201,37 @@ export function buildWatchedMarketStatuses(
 	});
 }
 
+/**
+ * Walks forward from `now` collecting upcoming session boundaries until at least
+ * a few future transitions are found, so the client can keep the status and
+ * countdown live for a while without re-fetching. Long closures (holidays,
+ * weekends) are skipped automatically because they produce no sessions.
+ */
+export function buildMarketTransitions(market: ScheduleDefinition, now: Date): MarketTransition[] {
+	const startDate = localDateTimeParts(now, market.timezone).date;
+	const nowMs = now.getTime();
+	const upcoming: MarketTransition[] = [];
+
+	for (let offset = 0; offset < 400 && upcoming.length < 6; offset += 1) {
+		const date = addDays(startDate, offset);
+		const day = dayScheduleForDate(market, date);
+		day.sessions.forEach((session, index) => {
+			const openAt = zonedDateTimeToUtc(date, session.startTime, market.timezone).getTime();
+			const closeAt = zonedDateTimeToUtc(date, session.endTime, market.timezone).getTime();
+			if (openAt > nowMs) upcoming.push({ at: openAt, kind: index === 0 ? 'open' : 'reopen' });
+			if (closeAt > nowMs) upcoming.push({ at: closeAt, kind: 'close' });
+		});
+	}
+
+	return upcoming.sort((left, right) => left.at - right.at);
+}
+
 export function buildMarketStatus(market: ScheduleDefinition, now: Date): MarketStatus {
 	const local = localDateTimeParts(now, market.timezone);
 	const today = dayScheduleForDate(market, local.date);
 	const displaySessions = today.sessions.length > 0 ? today.sessions : market.sessions;
 	const hoursLabel = formatHoursLabel(displaySessions);
+	const transitions = buildMarketTransitions(market, now);
 
 	for (let index = 0; index < today.sessions.length; index += 1) {
 		const session = today.sessions[index];
@@ -222,7 +256,8 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 				supplementalDetail:
 					index === 0
 						? detailForToday(today)
-						: breakDetail(today.sessions[index - 1]!.endTime, session.startTime)
+						: breakDetail(today.sessions[index - 1]!.endTime, session.startTime),
+				transitions
 			};
 		}
 
@@ -241,7 +276,8 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 				),
 				nextTransitionKind: 'close',
 				hoursLabel,
-				supplementalDetail: detailForOpenSession(today, index)
+				supplementalDetail: detailForOpenSession(today, index),
+				transitions
 			};
 		}
 	}
@@ -265,7 +301,8 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 		),
 		nextTransitionKind: 'open',
 		hoursLabel,
-		supplementalDetail: today.sessions.length === 0 ? detailForToday(today) : skippedDetail
+		supplementalDetail: today.sessions.length === 0 ? detailForToday(today) : skippedDetail,
+		transitions
 	};
 }
 
