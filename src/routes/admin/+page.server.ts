@@ -71,6 +71,26 @@ export const actions: Actions = {
 		return { success: true };
 	},
 
+	toggleWebsiteHidden: async ({ request, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const form = await request.formData();
+		const id = idFrom(form);
+		if (!id) return fail(400);
+		const hidden = form.get('hidden') === 'true';
+		await db.update(website).set({ hidden }).where(eq(website.id, id));
+		return { success: true };
+	},
+
+	toggleCityHidden: async ({ request, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const form = await request.formData();
+		const id = idFrom(form);
+		if (!id) return fail(400);
+		const hidden = form.get('hidden') === 'true';
+		await db.update(city).set({ hidden }).where(eq(city.id, id));
+		return { success: true };
+	},
+
 	toggleProjectHidden: async ({ request, locals }) => {
 		if (!locals.isAdmin) return fail(403);
 		const form = await request.formData();

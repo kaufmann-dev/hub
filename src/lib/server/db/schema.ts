@@ -22,6 +22,7 @@ export const website = pgTable('website', {
 	description: text('description'),
 	/** 'personal' | 'third_party' */
 	kind: text('kind').notNull().default('personal'),
+	hidden: boolean('hidden').notNull().default(false),
 
 	sortOrder: integer('sort_order').notNull().default(0),
 	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -72,6 +73,7 @@ export const city = pgTable('city', {
 	timezone: text('timezone').notNull(),
 	latitude: doublePrecision('latitude').notNull(),
 	longitude: doublePrecision('longitude').notNull(),
+	hidden: boolean('hidden').notNull().default(false),
 	sortOrder: integer('sort_order').notNull().default(0)
 });
 

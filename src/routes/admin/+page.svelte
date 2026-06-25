@@ -351,7 +351,10 @@
 							<div class="space-y-3" role="list" aria-label={group.title}>
 								{#each group.rows as site (site.id)}
 									<div
-										class="bg-card flex items-center gap-3 rounded-lg border p-3"
+										class={[
+											'bg-card flex items-center gap-3 rounded-lg border p-3',
+											site.hidden && 'opacity-50'
+										]}
 										role="listitem"
 										ondragover={handleDragOver}
 										ondrop={(event) => handleDrop('websites', site.id, event, group.id)}
@@ -371,6 +374,18 @@
 											<div class="font-medium">{site.title}</div>
 											<div class="text-muted-foreground truncate text-sm">{site.url}</div>
 										</div>
+										<form method="POST" action="?/toggleWebsiteHidden" use:enhance>
+											<input type="hidden" name="id" value={site.id} />
+											<input type="hidden" name="hidden" value={(!site.hidden).toString()} />
+											<Button
+												type="submit"
+												variant="ghost"
+												size="icon"
+												aria-label={site.hidden ? 'Show' : 'Hide'}
+											>
+												{#if site.hidden}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
+											</Button>
+										</form>
 										<a
 											href={resolve(`/admin/websites/${site.id}`)}
 											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
@@ -545,7 +560,10 @@
 				<div class="space-y-3" role="list" aria-label="Cities">
 					{#each displayedCities as c (c.id)}
 						<div
-							class="bg-card flex items-center gap-3 rounded-lg border p-3"
+							class={[
+								'bg-card flex items-center gap-3 rounded-lg border p-3',
+								c.hidden && 'opacity-50'
+							]}
 							role="listitem"
 							ondragover={handleDragOver}
 							ondrop={(event) => handleDrop('cities', c.id, event)}
@@ -567,6 +585,18 @@
 									{c.timezone} · {c.latitude}, {c.longitude}
 								</div>
 							</div>
+							<form method="POST" action="?/toggleCityHidden" use:enhance>
+								<input type="hidden" name="id" value={c.id} />
+								<input type="hidden" name="hidden" value={(!c.hidden).toString()} />
+								<Button
+									type="submit"
+									variant="ghost"
+									size="icon"
+									aria-label={c.hidden ? 'Show' : 'Hide'}
+								>
+									{#if c.hidden}<EyeOff class="size-4" />{:else}<Eye class="size-4" />{/if}
+								</Button>
+							</form>
 							<a
 								href={resolve(`/admin/cities/${c.id}`)}
 								class={buttonVariants({ variant: 'ghost', size: 'icon' })}

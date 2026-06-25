@@ -31,7 +31,8 @@ area for editing everything. It also shows stock-market status cards for curated
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
 - **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, watchlist
-  management for canonical exchanges, bulk icon refresh, and a "Sync now" button.
+  management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
+  cities, markets), bulk icon refresh, and a "Sync now" button.
 
 ## Environment
 

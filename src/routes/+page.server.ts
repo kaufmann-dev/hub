@@ -22,13 +22,18 @@ export const load: PageServerLoad = async () => {
 			.select({ ...getTableColumns(website), faviconCheckedAt: websiteFavicon.checkedAt })
 			.from(website)
 			.leftJoin(websiteFavicon, eq(website.id, websiteFavicon.websiteId))
+			.where(eq(website.hidden, false))
 			.orderBy(asc(website.sortOrder), asc(website.title)),
 		db
 			.select()
 			.from(githubProject)
 			.where(eq(githubProject.hidden, false))
 			.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars), asc(githubProject.id)),
-		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name)),
+		db
+			.select()
+			.from(city)
+			.where(eq(city.hidden, false))
+			.orderBy(asc(city.sortOrder), asc(city.name)),
 		getWatchedMarketStatuses()
 	]);
 

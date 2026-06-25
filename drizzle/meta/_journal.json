@@ -50,6 +50,13 @@
       "when": 1782408961608,
       "tag": "0006_reflective_radioactive_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782410621893,
+      "tag": "0007_minor_magma",
+      "breakpoints": true
     }
   ]
 }
