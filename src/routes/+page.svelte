@@ -204,7 +204,6 @@
 							<div
 								class="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs"
 							>
-								<span class="truncate">{market.description}</span>
 								<span class="flex items-center gap-1.5">
 									<span class="font-mono tabular-nums">{market.hoursLabel}</span>
 									{#if market.supplementalDetail}

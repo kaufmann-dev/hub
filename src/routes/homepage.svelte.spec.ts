@@ -23,7 +23,7 @@ describe('hub homepage markets', () => {
 						currentStatus: 'open',
 						countdownLabel: 'Closes in 2h 00m',
 						nextTransitionKind: 'close',
-						hoursLabel: '09:30-16:00 local',
+						hoursLabel: '09:30-16:00',
 						supplementalDetail: null,
 						hidden: false,
 						sortOrder: 0
@@ -39,7 +39,7 @@ describe('hub homepage markets', () => {
 						currentStatus: 'closed',
 						countdownLabel: 'Reopens in 0h 30m',
 						nextTransitionKind: 'reopen',
-						hoursLabel: '09:00-11:30 · 12:30-15:30 local',
+						hoursLabel: '09:00-11:30 · 12:30-15:30',
 						supplementalDetail: 'Midday break 11:30-12:30 local time.',
 						hidden: false,
 						sortOrder: 1
@@ -55,7 +55,7 @@ describe('hub homepage markets', () => {
 						currentStatus: 'closed',
 						countdownLabel: 'Opens in 23h 00m',
 						nextTransitionKind: 'open',
-						hoursLabel: '09:00-15:30 local',
+						hoursLabel: '09:00-15:30',
 						supplementalDetail: "Closed for New Year's Day.",
 						hidden: false,
 						sortOrder: 2
@@ -71,7 +71,7 @@ describe('hub homepage markets', () => {
 		await expect
 			.element(page.getByText('Tokyo Stock Exchange', { exact: true }))
 			.toBeInTheDocument();
-		await expect.element(page.getByText('09:00-11:30 · 12:30-15:30 local')).toBeInTheDocument();
+		await expect.element(page.getByText('09:00-11:30 · 12:30-15:30')).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Schedule detail for Tokyo Stock Exchange' }))
 			.toBeInTheDocument();

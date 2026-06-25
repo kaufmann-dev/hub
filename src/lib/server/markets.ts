@@ -460,7 +460,7 @@ function formatCountdown(milliseconds: number): string {
 }
 
 function formatHoursLabel(sessions: SessionWindow[]): string {
-	return `${sessions.map((session) => `${session.startTime}-${session.endTime}`).join(' · ')} local`;
+	return sessions.map((session) => `${session.startTime}-${session.endTime}`).join(' · ');
 }
 
 function minutesFromTime(value: string): number {

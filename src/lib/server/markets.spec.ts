@@ -143,7 +143,7 @@ describe('market schedule engine', () => {
 			currentStatus: 'open',
 			nextTransitionKind: 'close',
 			countdownLabel: 'Closes in 2h 00m',
-			hoursLabel: '09:30-16:00 local',
+			hoursLabel: '09:30-16:00',
 			supplementalDetail: null
 		});
 	});
@@ -176,7 +176,7 @@ describe('market schedule engine', () => {
 			currentStatus: 'closed',
 			nextTransitionKind: 'reopen',
 			countdownLabel: 'Reopens in 0h 30m',
-			hoursLabel: '09:00-11:30 · 12:30-15:30 local',
+			hoursLabel: '09:00-11:30 · 12:30-15:30',
 			supplementalDetail: 'Midday break 11:30-12:30 local time.'
 		});
 	});
@@ -221,7 +221,7 @@ describe('market schedule engine', () => {
 			currentStatus: 'open',
 			nextTransitionKind: 'close',
 			countdownLabel: 'Closes in 1h 00m',
-			hoursLabel: '09:30-13:00 local',
+			hoursLabel: '09:30-13:00',
 			supplementalDetail: 'Special session: Day after Thanksgiving early close.'
 		});
 	});
