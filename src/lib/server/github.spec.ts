@@ -11,6 +11,9 @@ const mock = vi.hoisted(() => {
 					upserts.push(value);
 				})
 			}))
+		})),
+		delete: vi.fn(() => ({
+			where: vi.fn(async () => ({ length: 0 }))
 		}))
 	};
 

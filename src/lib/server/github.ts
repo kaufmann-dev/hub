@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { sql, inArray, not } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from './db';
 import { githubProject } from './db/schema';
@@ -111,6 +111,13 @@ export async function syncGithubProjects(): Promise<number> {
 							syncedAt: now
 						}
 					});
+			}
+
+			const activeIds = usable.map((r) => r.id);
+			if (activeIds.length > 0) {
+				await db.delete(githubProject).where(not(inArray(githubProject.repoId, activeIds)));
+			} else {
+				await db.delete(githubProject);
 			}
 
 			lastSync = Date.now();
