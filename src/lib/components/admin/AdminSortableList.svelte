@@ -64,7 +64,7 @@
 <div class="relative">
 	<ol
 		class={[
-			'list-none space-y-3 rounded-lg transition-[background-color,box-shadow] duration-75',
+			'list-none space-y-3 rounded-lg',
 			items.length === 0 && 'border-border/80 min-h-16 border border-dashed'
 		]}
 		aria-label={label}
@@ -75,7 +75,7 @@
 		{#each items as item (item.id)}
 			<li
 				class={[
-					'bg-card relative flex items-center gap-3 rounded-lg border py-3 pr-3 pl-12 shadow-xs transition-[border-color,background-color,box-shadow,opacity] duration-75',
+					'bg-card relative flex items-center gap-3 rounded-lg border py-3 pr-3 pl-12 shadow-xs',
 					item.hidden && !item.isDndShadowItem && 'opacity-50',
 					item.isDndShadowItem && 'border-primary/45 bg-primary/5 border-dashed shadow-inner'
 				]}
@@ -86,7 +86,7 @@
 			>
 				<div
 					class={[
-						'admin-sort-handle text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 left-0 flex w-12 touch-none items-center justify-center rounded-l-lg transition-colors duration-75 outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset',
+						'admin-sort-handle text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 left-0 flex w-12 touch-none items-center justify-center rounded-l-lg outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset',
 						disabled && 'pointer-events-none opacity-40'
 					]}
 					aria-label={`Reorder ${item.label}`}
