@@ -12,9 +12,9 @@
 		Eye,
 		EyeOff,
 		Star,
-		ArrowLeft,
-		LoaderCircle
+		ArrowLeft
 	} from '@lucide/svelte';
+	import { toast } from 'svelte-sonner';
 	import { SOURCES, TRIGGERS, type DndEvent } from 'svelte-dnd-action';
 	import {
 		flattenZoneIds,
@@ -43,15 +43,17 @@
 	const adminTabs = ['websites', 'projects', 'cities', 'markets'] as const;
 	const websiteGroupOrder = ['personal', 'third_party'] as const;
 	const projectGroupOrder = ['active', 'inactive'] as const;
+	const toastIds = {
+		faviconRefresh: 'admin-favicon-refresh',
+		projectSync: 'admin-project-sync',
+		marketImport: 'admin-market-import',
+		reorder: 'admin-reorder'
+	} as const;
 
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
-	let syncStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let refreshingFavicons = $state(false);
-	let faviconStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let importingMarkets = $state(false);
-	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(null);
-	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
 	let websiteOrder = $state.raw<number[] | null>(null);
 	let projectOrder = $state.raw<number[] | null>(null);
@@ -262,7 +264,6 @@
 			return;
 		}
 
-		reorderError = '';
 		setOrder(type, nextIds);
 		if (type === 'websites') websiteKindOverrides = nextWebsiteKinds;
 		if (type === 'projects') projectHiddenOverrides = nextProjectHidden;
@@ -279,7 +280,9 @@
 			setOrder(type, previousIds);
 			websiteKindOverrides = previousWebsiteKindOverrides;
 			projectHiddenOverrides = previousProjectHiddenOverrides;
-			reorderError = 'Order could not be saved.';
+			toast.error('Order could not be saved. The previous order was restored.', {
+				id: toastIds.reorder
+			});
 		} finally {
 			clearDraft(type);
 			savingReorder = null;
@@ -318,7 +321,7 @@
 	function handleWebsiteConsider(group: WebsiteKind, event: SortEvent) {
 		const zones = updateWebsiteDraft(group, event.detail.items);
 		const { source, trigger } = event.detail.info;
-		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (trigger === TRIGGERS.DRAG_STARTED) toast.dismiss(toastIds.reorder);
 		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
 			commitWebsites(zones);
 		}
@@ -338,7 +341,7 @@
 	function handleProjectConsider(group: ProjectGroup, event: SortEvent) {
 		const zones = updateProjectDraft(group, event.detail.items);
 		const { source, trigger } = event.detail.info;
-		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (trigger === TRIGGERS.DRAG_STARTED) toast.dismiss(toastIds.reorder);
 		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
 			commitProjects(zones);
 		}
@@ -358,7 +361,7 @@
 	function handleCityConsider(event: SortEvent) {
 		cityDraft = [...event.detail.items];
 		const { source, trigger } = event.detail.info;
-		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (trigger === TRIGGERS.DRAG_STARTED) toast.dismiss(toastIds.reorder);
 		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
 			void persistReorder('cities', flattenZoneIds({ cities: cityDraft }, ['cities']));
 		}
@@ -378,7 +381,7 @@
 	function handleMarketConsider(event: SortEvent) {
 		marketDraft = [...event.detail.items];
 		const { source, trigger } = event.detail.info;
-		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (trigger === TRIGGERS.DRAG_STARTED) toast.dismiss(toastIds.reorder);
 		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
 			void persistReorder('markets', flattenZoneIds({ markets: marketDraft }, ['markets']));
 		}
@@ -395,19 +398,6 @@
 		}
 	}
 </script>
-
-{#snippet reorderStatus(type: AdminTab)}
-	{#if savingReorder === type}
-		<p
-			class="text-muted-foreground flex items-center justify-end gap-1.5 text-sm"
-			aria-live="polite"
-		>
-			<LoaderCircle class="size-3.5 animate-spin" /> Saving order…
-		</p>
-	{:else if reorderError && activeTab === type}
-		<p class="text-destructive text-sm" role="alert">{reorderError}</p>
-	{/if}
-{/snippet}
 
 <svelte:head><title>Admin · Hub</title></svelte:head>
 
@@ -444,32 +434,30 @@
 			<!-- Websites -->
 			<Tabs.Content value="websites" class="space-y-3">
 				<div class="flex items-center justify-end gap-3">
-					{#if faviconStatus}
-						<span
-							class={['text-sm', faviconStatus.ok ? 'text-muted-foreground' : 'text-destructive']}
-						>
-							{faviconStatus.message}
-						</span>
-					{/if}
 					<form
 						method="POST"
 						action="?/refreshFavicons"
 						use:enhance={() => {
 							refreshingFavicons = true;
-							faviconStatus = null;
+							toast.dismiss(toastIds.faviconRefresh);
 							return async ({ result, update }) => {
-								if (result.type === 'success') {
-									const refreshed = (result.data?.refreshed as number | undefined) ?? 0;
-									const failed = (result.data?.failed as number | undefined) ?? 0;
-									faviconStatus = {
-										ok: failed === 0,
-										message: `Refreshed ${refreshed} icons${failed ? `; ${failed} failed.` : '.'}`
-									};
-								} else {
-									faviconStatus = { ok: false, message: 'Icon refresh failed.' };
+								try {
+									if (result.type === 'success') {
+										const refreshed = (result.data?.refreshed as number | undefined) ?? 0;
+										const failed = (result.data?.failed as number | undefined) ?? 0;
+										const message = `Refreshed ${refreshed} icons${failed ? `; ${failed} failed.` : '.'}`;
+										if (failed === 0) {
+											toast.success(message, { id: toastIds.faviconRefresh });
+										} else {
+											toast.warning(message, { id: toastIds.faviconRefresh });
+										}
+									} else {
+										toast.error('Icon refresh failed.', { id: toastIds.faviconRefresh });
+									}
+									await update();
+								} finally {
+									refreshingFavicons = false;
 								}
-								await update();
-								refreshingFavicons = false;
 							};
 						}}
 					>
@@ -482,7 +470,6 @@
 						<Plus class="size-4" /> Add website
 					</a>
 				</div>
-				{@render reorderStatus('websites')}
 				<div class="space-y-5">
 					{#each websiteGroups as group (group.id)}
 						<section class="space-y-3" aria-labelledby={`websites-${group.id}`}>
@@ -544,11 +531,6 @@
 			<!-- Projects -->
 			<Tabs.Content value="projects" class="space-y-3">
 				<div class="flex items-center justify-end gap-3">
-					{#if syncStatus}
-						<span class={['text-sm', syncStatus.ok ? 'text-muted-foreground' : 'text-destructive']}>
-							{syncStatus.message}
-						</span>
-					{/if}
 					<form
 						method="POST"
 						action="?/setAllProjectsHidden"
@@ -573,16 +555,23 @@
 						action="?/syncNow"
 						use:enhance={() => {
 							syncing = true;
-							syncStatus = null;
+							toast.dismiss(toastIds.projectSync);
 							return async ({ result, update }) => {
-								if (result.type === 'success') {
-									const synced = (result.data?.synced as number | undefined) ?? 0;
-									syncStatus = { ok: true, message: `Synced ${synced} projects.` };
-								} else if (result.type === 'failure') {
-									syncStatus = { ok: false, message: 'Sync failed. Check server logs.' };
+								try {
+									if (result.type === 'success') {
+										const synced = (result.data?.synced as number | undefined) ?? 0;
+										toast.success(`Synced ${synced} projects.`, {
+											id: toastIds.projectSync
+										});
+									} else {
+										toast.error('Sync failed. Check server logs.', {
+											id: toastIds.projectSync
+										});
+									}
+									await update();
+								} finally {
+									syncing = false;
 								}
-								await update();
-								syncing = false;
 							};
 						}}
 					>
@@ -592,7 +581,6 @@
 						</Button>
 					</form>
 				</div>
-				{@render reorderStatus('projects')}
 				<div class="space-y-5">
 					{#each projectGroups as group (group.id)}
 						<section class="space-y-3" aria-labelledby={`projects-${group.id}`}>
@@ -672,7 +660,6 @@
 						<Plus class="size-4" /> Add city
 					</a>
 				</div>
-				{@render reorderStatus('cities')}
 				<AdminSortableList
 					items={cityItems}
 					label="Cities"
@@ -724,45 +711,34 @@
 			<!-- Markets -->
 			<Tabs.Content value="markets" class="space-y-3">
 				<div class="flex items-center justify-end gap-3">
-					{#if marketImportStatus}
-						<span
-							class={[
-								'text-sm',
-								marketImportStatus.ok ? 'text-muted-foreground' : 'text-destructive'
-							]}
-						>
-							{marketImportStatus.message}
-						</span>
-					{/if}
 					<form
 						method="POST"
 						action="?/importSupportedMarkets"
 						use:enhance={() => {
 							importingMarkets = true;
-							marketImportStatus = null;
+							toast.dismiss(toastIds.marketImport);
 							return async ({ result, update }) => {
-								if (result.type === 'success') {
-									const imported = (result.data?.imported as number | undefined) ?? 0;
-									marketImportStatus = {
-										ok: true,
-										message:
-											imported === 0
-												? 'All canonical markets are already configured.'
-												: `Imported ${imported} canonical markets.`
-									};
-								} else if (result.type === 'failure') {
-									marketImportStatus = {
-										ok: false,
-										message: 'Market import failed. Check server logs.'
-									};
-								} else {
-									marketImportStatus = {
-										ok: false,
-										message: 'Market import failed. Check server logs.'
-									};
+								try {
+									if (result.type === 'success') {
+										const imported = (result.data?.imported as number | undefined) ?? 0;
+										if (imported === 0) {
+											toast.info('All canonical markets are already configured.', {
+												id: toastIds.marketImport
+											});
+										} else {
+											toast.success(`Imported ${imported} canonical markets.`, {
+												id: toastIds.marketImport
+											});
+										}
+									} else {
+										toast.error('Market import failed. Check server logs.', {
+											id: toastIds.marketImport
+										});
+									}
+									await update();
+								} finally {
+									importingMarkets = false;
 								}
-								await update();
-								importingMarkets = false;
 							};
 						}}
 					>
@@ -775,7 +751,6 @@
 						<Plus class="size-4" /> Add market
 					</a>
 				</div>
-				{@render reorderStatus('markets')}
 				<AdminSortableList
 					items={marketItems}
 					label="Markets"

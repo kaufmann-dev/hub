@@ -6,6 +6,16 @@ import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
+	optimizeDeps: {
+		include: [
+			'svelte-sonner',
+			'@lucide/svelte/icons/circle-check',
+			'@lucide/svelte/icons/info',
+			'@lucide/svelte/icons/loader-2',
+			'@lucide/svelte/icons/octagon-x',
+			'@lucide/svelte/icons/triangle-alert'
+		]
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit({

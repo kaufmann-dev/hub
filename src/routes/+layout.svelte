@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { locales, localizeHref } from '$lib/paraglide/runtime';
 	import { ModeWatcher } from 'mode-watcher';
+	import { Toaster } from '$lib/components/ui/sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
@@ -13,6 +14,7 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <ModeWatcher />
+<Toaster position="bottom-right" closeButton />
 <Tooltip.Provider>
 	{@render children()}
 </Tooltip.Provider>
