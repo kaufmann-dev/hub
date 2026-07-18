@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type {
 	WebsiteHealthFailureKind,
 	WebsiteHealthRefreshResponse,
@@ -149,7 +149,7 @@ function refreshWebsiteHealth(websiteId: number, url: string): Promise<void> {
 	return refresh;
 }
 
-/** Refresh missing or stale visible website results with one shared concurrent batch. */
+/** Refresh missing or stale visible personal website results with one shared concurrent batch. */
 export function refreshStaleWebsiteHealth(maxAgeMs = WEBSITE_HEALTH_MAX_AGE_MS): Promise<void> {
 	if (inFlightBatch) return inFlightBatch;
 
@@ -162,7 +162,7 @@ export function refreshStaleWebsiteHealth(maxAgeMs = WEBSITE_HEALTH_MAX_AGE_MS):
 			})
 			.from(website)
 			.leftJoin(websiteHealth, eq(website.id, websiteHealth.websiteId))
-			.where(eq(website.hidden, false))
+			.where(and(eq(website.hidden, false), eq(website.kind, 'personal')))
 			.orderBy(asc(website.id));
 		const stale = rows.filter(
 			(row) => !row.checkedAt || Date.now() - row.checkedAt.getTime() > maxAgeMs
@@ -228,7 +228,7 @@ export async function getVisibleWebsiteHealth(): Promise<WebsiteHealthRefreshRes
 		})
 		.from(website)
 		.leftJoin(websiteHealth, eq(website.id, websiteHealth.websiteId))
-		.where(eq(website.hidden, false))
+		.where(and(eq(website.hidden, false), eq(website.kind, 'personal')))
 		.orderBy(asc(website.id));
 
 	return {

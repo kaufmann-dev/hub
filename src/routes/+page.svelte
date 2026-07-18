@@ -354,8 +354,6 @@
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
 							{@const favicon = faviconUrls(site.id, site.faviconCheckedAt)}
-							{@const health = healthFor(site)}
-							{@const statusLabel = healthLabel(health)}
 							<div
 								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
 							>
@@ -367,25 +365,31 @@
 								>
 									<WebsiteIcon lightSrc={favicon.light} darkSrc={favicon.dark} />
 									<span class="min-w-0 flex-1">
-										<span class="flex items-center gap-1.5 font-medium">
-											{site.title}
-											<span
-												role="img"
-												aria-label={statusLabel}
-												title={statusLabel}
-												data-health-status={health?.state ?? 'unknown'}
-												class={[
-													'size-2 shrink-0 rounded-full transition-colors duration-75',
-													health?.state === 'healthy'
-														? 'bg-emerald-500'
-														: health?.state === 'unhealthy'
-															? 'bg-red-500'
-															: 'bg-muted-foreground/50'
-												]}
-											></span>
-											<ExternalLink
-												class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
-											/>
+										<span class="flex w-full items-center justify-between gap-2 font-medium">
+											<span class="flex min-w-0 items-center gap-1.5">
+												<span class="truncate">{site.title}</span>
+												<ExternalLink
+													class="text-muted-foreground size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+												/>
+											</span>
+											{#if site.kind === 'personal'}
+												{@const health = healthFor(site)}
+												{@const statusLabel = healthLabel(health)}
+												<span
+													role="img"
+													aria-label={statusLabel}
+													title={statusLabel}
+													data-health-status={health?.state ?? 'unknown'}
+													class={[
+														'size-2 shrink-0 rounded-full transition-colors duration-75',
+														health?.state === 'healthy'
+															? 'bg-emerald-500'
+															: health?.state === 'unhealthy'
+																? 'bg-red-500'
+																: 'bg-muted-foreground/50'
+													]}
+												></span>
+											{/if}
 										</span>
 										{#if site.description}
 											<span class="text-muted-foreground line-clamp-2 text-sm"

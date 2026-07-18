@@ -158,13 +158,31 @@ describe('hub homepage website availability', () => {
 						title: 'Unchecked site',
 						url: 'https://unchecked.example.com',
 						description: null,
-						kind: 'third_party',
+						kind: 'personal',
 						hidden: false,
 						sortOrder: 2,
 						createdAt,
 						updatedAt: createdAt,
 						faviconCheckedAt: null,
 						health: null
+					},
+					{
+						id: 4,
+						title: 'Third-party site',
+						url: 'https://third-party.example.com',
+						description: null,
+						kind: 'third_party',
+						hidden: false,
+						sortOrder: 3,
+						createdAt,
+						updatedAt: createdAt,
+						faviconCheckedAt: null,
+						health: {
+							state: 'unhealthy',
+							statusCode: 403,
+							failureKind: 'http',
+							checkedAt: '2026-07-18T12:01:00.000Z'
+						}
 					}
 				],
 				projects: [],
@@ -183,10 +201,12 @@ describe('hub homepage website availability', () => {
 		await expect
 			.element(page.getByRole('img', { name: 'Status not checked yet' }))
 			.toHaveAttribute('data-health-status', 'unknown');
-		const beforeRefresh = document
-			.querySelector<HTMLElement>('[data-health-status="unknown"]')!
-			.getBoundingClientRect();
-
+		expect(document.querySelectorAll('[data-health-status]')).toHaveLength(3);
+		expect(
+			document
+				.querySelector<HTMLAnchorElement>('a[href="https://third-party.example.com"]')!
+				.querySelector('[data-health-status]')
+		).toBeNull();
 		finishRefresh?.(
 			new Response(
 				JSON.stringify({
@@ -206,10 +226,10 @@ describe('hub homepage website availability', () => {
 		await expect
 			.element(page.getByRole('img', { name: /Available — HTTP 204/ }))
 			.toHaveAttribute('data-health-status', 'healthy');
-		const afterRefresh = document
-			.querySelector<HTMLElement>('[data-health-status="healthy"][aria-label*="HTTP 204"]')!
-			.getBoundingClientRect();
-		expect(afterRefresh.width).toBe(beforeRefresh.width);
-		expect(afterRefresh.height).toBe(beforeRefresh.height);
+		const refreshedDot = document.querySelector<HTMLElement>(
+			'[data-health-status="healthy"][aria-label*="HTTP 204"]'
+		)!;
+		expect(refreshedDot.parentElement?.classList.contains('justify-between')).toBe(true);
+		expect(refreshedDot.parentElement?.lastElementChild).toBe(refreshedDot);
 	});
 });

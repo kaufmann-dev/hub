@@ -26,7 +26,7 @@ describe('POST /api/website-health/refresh', () => {
 		});
 	});
 
-	it('waits for stale checks and returns public cached snapshots', async () => {
+	it('waits for stale checks and returns public personal-site snapshots', async () => {
 		const response = await POST({} as Parameters<typeof POST>[0]);
 
 		expect(mock.refreshStaleWebsiteHealth).toHaveBeenCalledOnce();

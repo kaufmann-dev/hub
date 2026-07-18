@@ -33,7 +33,7 @@ vi.mock('./public-url', () => ({ assertPublicUrl: vi.fn(async () => undefined) }
 
 const { refreshStaleWebsiteHealth } = await import('./website-health');
 
-describe('website health cache refresh', () => {
+describe('personal website health cache refresh', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.unstubAllGlobals();
