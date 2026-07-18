@@ -356,24 +356,36 @@ export async function refreshStaleFavicons(maxAgeMs: number): Promise<void> {
 	}
 }
 
+export type FailedWebsiteFavicon = {
+	id: number;
+	title: string;
+	url: string;
+};
+
+export type BulkFaviconRefreshResult = {
+	refreshed: number;
+	failed: FailedWebsiteFavicon[];
+};
+
 /** Refresh every website with at most four active discoveries. */
-export async function refreshAllWebsiteFavicons(): Promise<{ refreshed: number; failed: number }> {
+export async function refreshAllWebsiteFavicons(): Promise<BulkFaviconRefreshResult> {
 	const rows = await db
-		.select({ id: website.id, url: website.url })
+		.select({ id: website.id, title: website.title, url: website.url })
 		.from(website)
 		.orderBy(asc(website.id));
 	let nextIndex = 0;
 	let refreshed = 0;
-	let failed = 0;
+	const failed: FailedWebsiteFavicon[] = [];
 
 	async function worker() {
 		while (nextIndex < rows.length) {
 			const row = rows[nextIndex++];
 			if (await refreshWebsiteFavicon(row.id, row.url)) refreshed += 1;
-			else failed += 1;
+			else failed.push(row);
 		}
 	}
 
 	await Promise.all(Array.from({ length: Math.min(4, rows.length) }, () => worker()));
+	failed.sort((left, right) => left.id - right.id);
 	return { refreshed, failed };
 }

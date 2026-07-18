@@ -10,16 +10,15 @@ describe('admin action feedback', () => {
 		cleanup();
 	});
 
-	it('shows failures without shifting page content', async () => {
+	it('identifies failed favicon websites without shifting page content', async () => {
 		render(AdminFeedbackTest);
 		const anchor = page.getByText('Stable admin content').element();
 		const before = anchor.getBoundingClientRect();
 
-		await page.getByRole('button', { name: 'Show reorder failure' }).click();
+		await page.getByRole('button', { name: 'Show favicon warning' }).click();
 
-		await expect
-			.element(page.getByText('Order could not be saved. The previous order was restored.'))
-			.toBeVisible();
+		await expect.element(page.getByText('Refreshed 17 icons; 1 failed.')).toBeVisible();
+		await expect.element(page.getByText('Failed website: Authentik')).toBeVisible();
 		const after = anchor.getBoundingClientRect();
 		expect(after.top).toBe(before.top);
 		expect(after.left).toBe(before.left);

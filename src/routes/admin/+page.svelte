@@ -444,12 +444,16 @@
 								try {
 									if (result.type === 'success') {
 										const refreshed = (result.data?.refreshed as number | undefined) ?? 0;
-										const failed = (result.data?.failed as number | undefined) ?? 0;
-										const message = `Refreshed ${refreshed} icons${failed ? `; ${failed} failed.` : '.'}`;
-										if (failed === 0) {
+										const failed = (result.data?.failed as { title: string }[] | undefined) ?? [];
+										const message = `Refreshed ${refreshed} icons${failed.length ? `; ${failed.length} failed.` : '.'}`;
+										if (failed.length === 0) {
 											toast.success(message, { id: toastIds.faviconRefresh });
 										} else {
-											toast.warning(message, { id: toastIds.faviconRefresh });
+											toast.warning(message, {
+												id: toastIds.faviconRefresh,
+												description: `${failed.length === 1 ? 'Failed website' : 'Failed websites'}: ${failed.map((site) => site.title).join(', ')}`,
+												duration: 8000
+											});
 										}
 									} else {
 										toast.error('Icon refresh failed.', { id: toastIds.faviconRefresh });

@@ -16,7 +16,10 @@ const { actions } = await import('../../routes/admin/+page.server');
 describe('admin favicon refresh action', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		mock.refreshAllWebsiteFavicons.mockResolvedValue({ refreshed: 3, failed: 1 });
+		mock.refreshAllWebsiteFavicons.mockResolvedValue({
+			refreshed: 3,
+			failed: [{ id: 4, title: 'Authentik', url: 'https://auth.example.com' }]
+		});
 	});
 
 	it('returns 403 for non-admin requests', async () => {
@@ -26,10 +29,14 @@ describe('admin favicon refresh action', () => {
 		expect(mock.refreshAllWebsiteFavicons).not.toHaveBeenCalled();
 	});
 
-	it('returns refresh counts for admins', async () => {
+	it('returns refresh results with failed website identities for admins', async () => {
 		const result = await actions.refreshFavicons({ locals: { isAdmin: true } } as never);
 
-		expect(result).toEqual({ success: true, refreshed: 3, failed: 1 });
+		expect(result).toEqual({
+			success: true,
+			refreshed: 3,
+			failed: [{ id: 4, title: 'Authentik', url: 'https://auth.example.com' }]
+		});
 		expect(mock.refreshAllWebsiteFavicons).toHaveBeenCalledTimes(1);
 	});
 });

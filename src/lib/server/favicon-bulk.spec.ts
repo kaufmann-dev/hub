@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mock = vi.hoisted(() => {
 	const rows = Array.from({ length: 9 }, (_, index) => ({
 		id: index + 1,
+		title: `Website ${index + 1}`,
 		url: `https://example.com/${index + 1}`
 	}));
 	const db = {
@@ -17,7 +18,7 @@ const mock = vi.hoisted(() => {
 			}))
 		}))
 	};
-	return { db };
+	return { db, rows };
 });
 
 vi.mock('./db', () => ({ db: mock.db }));
@@ -30,7 +31,7 @@ describe('bulk favicon refresh', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('refreshes at most four websites concurrently and returns counts', async () => {
+	it('refreshes at most four websites concurrently and returns a structured result', async () => {
 		let active = 0;
 		let maxActive = 0;
 		vi.stubGlobal(
@@ -44,7 +45,26 @@ describe('bulk favicon refresh', () => {
 			})
 		);
 
-		await expect(refreshAllWebsiteFavicons()).resolves.toEqual({ refreshed: 9, failed: 0 });
+		await expect(refreshAllWebsiteFavicons()).resolves.toEqual({ refreshed: 9, failed: [] });
 		expect(maxActive).toBeLessThanOrEqual(4);
+	});
+
+	it('returns each failed website identity', async () => {
+		const errorLog = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				throw new Error('offline');
+			})
+		);
+
+		try {
+			await expect(refreshAllWebsiteFavicons()).resolves.toEqual({
+				refreshed: 0,
+				failed: mock.rows
+			});
+		} finally {
+			errorLog.mockRestore();
+		}
 	});
 });
