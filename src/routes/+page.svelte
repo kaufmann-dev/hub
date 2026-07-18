@@ -10,12 +10,68 @@
 	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
 	import GithubMark from '$lib/components/hub/GithubMark.svelte';
 	import WebsiteIcon from '$lib/components/hub/WebsiteIcon.svelte';
+	import type { WebsiteHealthRefreshResponse, WebsiteHealthSnapshot } from '$lib/website-health';
+	import type { Attachment } from 'svelte/attachments';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
 	let q = $state('');
 	let filterInput = $state<HTMLInputElement | null>(null);
+	let refreshedWebsiteHealth = $state.raw<WebsiteHealthRefreshResponse['healthByWebsiteId'] | null>(
+		null
+	);
+
+	const refreshWebsiteHealth: Attachment<HTMLElement> = () => {
+		const controller = new AbortController();
+		void (async () => {
+			try {
+				const response = await fetch(resolve('/api/website-health/refresh'), {
+					method: 'POST',
+					headers: { accept: 'application/json' },
+					signal: controller.signal
+				});
+				if (!response.ok) return;
+				const body = (await response.json()) as WebsiteHealthRefreshResponse;
+				refreshedWebsiteHealth = body.healthByWebsiteId;
+			} catch {
+				// Best-effort: retain the cached server-rendered result.
+			}
+		})();
+		return () => controller.abort();
+	};
+
+	function healthFor(site: PageData['websites'][number]): WebsiteHealthSnapshot | null {
+		const key = String(site.id);
+		if (refreshedWebsiteHealth && Object.hasOwn(refreshedWebsiteHealth, key)) {
+			return refreshedWebsiteHealth[key] ?? null;
+		}
+		return site.health;
+	}
+
+	function checkedAtLabel(checkedAt: string): string {
+		return checkedAt.replace('T', ' ').replace(/\.\d{3}Z$/, ' UTC');
+	}
+
+	function healthLabel(health: WebsiteHealthSnapshot | null): string {
+		if (!health) return 'Status not checked yet';
+		const checked = `checked ${checkedAtLabel(health.checkedAt)}`;
+		if (health.state === 'healthy') {
+			return `Available${health.statusCode ? ` — HTTP ${health.statusCode}` : ''} — ${checked}`;
+		}
+
+		const detail =
+			health.failureKind === 'http' && health.statusCode
+				? `HTTP ${health.statusCode}`
+				: health.failureKind === 'timeout'
+					? 'timed out'
+					: health.failureKind === 'blocked'
+						? 'URL is not publicly reachable'
+						: health.failureKind === 'redirect'
+							? 'invalid redirect'
+							: 'connection failed';
+		return `Unavailable — ${detail} — ${checked}`;
+	}
 
 	// Weather is fetched server-side for the first paint, then refreshed on the
 	// client so a long-open tab does not show stale conditions. The server caches
@@ -36,19 +92,15 @@
 		}
 	}
 
-	$effect(() => {
+	const refreshWeatherWhileMounted: Attachment<HTMLElement> = () => {
 		const interval = setInterval(refreshWeather, WEATHER_REFRESH_MS);
-		// Catch up immediately when the tab becomes visible again (timers are
-		// throttled or paused while backgrounded).
-		const onVisible = () => {
-			if (document.visibilityState === 'visible') refreshWeather();
-		};
-		document.addEventListener('visibilitychange', onVisible);
-		return () => {
-			clearInterval(interval);
-			document.removeEventListener('visibilitychange', onVisible);
-		};
-	});
+		return () => clearInterval(interval);
+	};
+
+	function refreshWeatherWhenVisible() {
+		// Timers are throttled or paused while backgrounded.
+		if (document.visibilityState === 'visible') void refreshWeather();
+	}
 
 	const needle = $derived(q.trim().toLowerCase());
 
@@ -150,13 +202,18 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+<svelte:document onvisibilitychange={refreshWeatherWhenVisible} />
 
 <svelte:head>
 	<title>Hub</title>
 	<meta name="description" content="Personal hub: websites, GitHub projects, clocks and weather." />
 </svelte:head>
 
-<div class="bg-background text-foreground flex min-h-screen flex-col">
+<div
+	class="bg-background text-foreground flex min-h-screen flex-col"
+	{@attach refreshWebsiteHealth}
+	{@attach refreshWeatherWhileMounted}
+>
 	<!-- Filter bar (sticky, top) -->
 	<header class="bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
 		<div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
@@ -297,6 +354,8 @@
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
 							{@const favicon = faviconUrls(site.id, site.faviconCheckedAt)}
+							{@const health = healthFor(site)}
+							{@const statusLabel = healthLabel(health)}
 							<div
 								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4 transition-colors"
 							>
@@ -310,6 +369,20 @@
 									<span class="min-w-0 flex-1">
 										<span class="flex items-center gap-1.5 font-medium">
 											{site.title}
+											<span
+												role="img"
+												aria-label={statusLabel}
+												title={statusLabel}
+												data-health-status={health?.state ?? 'unknown'}
+												class={[
+													'size-2 shrink-0 rounded-full transition-colors duration-75',
+													health?.state === 'healthy'
+														? 'bg-emerald-500'
+														: health?.state === 'unhealthy'
+															? 'bg-red-500'
+															: 'bg-muted-foreground/50'
+												]}
+											></span>
 											<ExternalLink
 												class="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
 											/>

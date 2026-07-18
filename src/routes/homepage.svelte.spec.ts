@@ -1,7 +1,26 @@
 import { page } from 'vitest/browser';
-import { describe, expect, it } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, render } from 'vitest-browser-svelte';
 import HomepageTest from './homepage-test.svelte';
+
+vi.mock('$lib/favicon', () => ({
+	faviconUrls: () => ({
+		light: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
+		dark: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'
+	})
+}));
+
+beforeEach(() => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async () => new Response(null, { status: 503 }))
+	);
+});
+
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+});
 
 describe('hub homepage markets', () => {
 	it('renders single-session, split-session, and holiday-closed exchange cards', async () => {
@@ -78,5 +97,119 @@ describe('hub homepage markets', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Schedule detail for Korea Exchange' }))
 			.toBeInTheDocument();
+	});
+});
+
+describe('hub homepage website availability', () => {
+	it('renders cached states and updates an unchecked website after the background refresh', async () => {
+		let finishRefresh: ((response: Response) => void) | undefined;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Promise<Response>((resolve) => {
+						finishRefresh = resolve;
+					})
+			)
+		);
+
+		const createdAt = new Date('2026-07-18T10:00:00Z');
+		render(HomepageTest, {
+			data: {
+				websites: [
+					{
+						id: 1,
+						title: 'Available site',
+						url: 'https://available.example.com',
+						description: null,
+						kind: 'personal',
+						hidden: false,
+						sortOrder: 0,
+						createdAt,
+						updatedAt: createdAt,
+						faviconCheckedAt: null,
+						health: {
+							state: 'healthy',
+							statusCode: 200,
+							failureKind: null,
+							checkedAt: '2026-07-18T12:00:00.000Z'
+						}
+					},
+					{
+						id: 2,
+						title: 'Unavailable site',
+						url: 'https://unavailable.example.com',
+						description: null,
+						kind: 'personal',
+						hidden: false,
+						sortOrder: 1,
+						createdAt,
+						updatedAt: createdAt,
+						faviconCheckedAt: null,
+						health: {
+							state: 'unhealthy',
+							statusCode: 503,
+							failureKind: 'http',
+							checkedAt: '2026-07-18T12:01:00.000Z'
+						}
+					},
+					{
+						id: 3,
+						title: 'Unchecked site',
+						url: 'https://unchecked.example.com',
+						description: null,
+						kind: 'third_party',
+						hidden: false,
+						sortOrder: 2,
+						createdAt,
+						updatedAt: createdAt,
+						faviconCheckedAt: null,
+						health: null
+					}
+				],
+				projects: [],
+				cities: [],
+				weatherByCity: {},
+				markets: []
+			}
+		});
+
+		await expect
+			.element(page.getByRole('img', { name: /Available — HTTP 200/ }))
+			.toHaveAttribute('data-health-status', 'healthy');
+		await expect
+			.element(page.getByRole('img', { name: /Unavailable — HTTP 503/ }))
+			.toHaveAttribute('data-health-status', 'unhealthy');
+		await expect
+			.element(page.getByRole('img', { name: 'Status not checked yet' }))
+			.toHaveAttribute('data-health-status', 'unknown');
+		const beforeRefresh = document
+			.querySelector<HTMLElement>('[data-health-status="unknown"]')!
+			.getBoundingClientRect();
+
+		finishRefresh?.(
+			new Response(
+				JSON.stringify({
+					healthByWebsiteId: {
+						'3': {
+							state: 'healthy',
+							statusCode: 204,
+							failureKind: null,
+							checkedAt: '2026-07-18T12:02:00.000Z'
+						}
+					}
+				}),
+				{ status: 200, headers: { 'content-type': 'application/json' } }
+			)
+		);
+
+		await expect
+			.element(page.getByRole('img', { name: /Available — HTTP 204/ }))
+			.toHaveAttribute('data-health-status', 'healthy');
+		const afterRefresh = document
+			.querySelector<HTMLElement>('[data-health-status="healthy"][aria-label*="HTTP 204"]')!
+			.getBoundingClientRect();
+		expect(afterRefresh.width).toBe(beforeRefresh.width);
+		expect(afterRefresh.height).toBe(beforeRefresh.height);
 	});
 });

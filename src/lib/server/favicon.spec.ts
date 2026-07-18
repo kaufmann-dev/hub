@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { assertPublicUrl, discoverFavicon, faviconCandidates, isPrivateIp } from './favicon';
+import { discoverFavicon, faviconCandidates } from './favicon';
+import { assertPublicUrl, isPrivateIp } from './public-url';
 
 const allowUrl = async () => undefined;
 

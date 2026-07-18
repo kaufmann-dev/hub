@@ -3,7 +3,7 @@ import { desc, eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '$lib/server/db';
-import { website } from '$lib/server/db/schema';
+import { website, websiteHealth } from '$lib/server/db/schema';
 import { websiteSchema } from '$lib/schemas';
 import { refreshWebsiteFavicon } from '$lib/server/favicon';
 import type { Actions, PageServerLoad } from './$types';
@@ -75,12 +75,20 @@ export const actions: Actions = {
 				.from(website)
 				.where(eq(website.id, id));
 			if (!existing) error(404, 'Website not found');
-			await db
-				.update(website)
-				.set({ ...values, updatedAt: new Date() })
-				.where(eq(website.id, id));
 			if (existing.url !== values.url) {
+				await db.transaction(async (tx) => {
+					await tx
+						.update(website)
+						.set({ ...values, updatedAt: new Date() })
+						.where(eq(website.id, id));
+					await tx.delete(websiteHealth).where(eq(websiteHealth.websiteId, id));
+				});
 				await refreshWebsiteFavicon(id, values.url);
+			} else {
+				await db
+					.update(website)
+					.set({ ...values, updatedAt: new Date() })
+					.where(eq(website.id, id));
 			}
 		}
 

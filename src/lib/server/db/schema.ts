@@ -43,6 +43,18 @@ export const websiteFavicon = pgTable('website_favicon', {
 	checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+/** Last server-side reachability check for a visible website. */
+export const websiteHealth = pgTable('website_health', {
+	websiteId: integer('website_id')
+		.primaryKey()
+		.references(() => website.id, { onDelete: 'cascade' }),
+	healthy: boolean('healthy').notNull(),
+	statusCode: integer('status_code'),
+	/** 'http' | 'timeout' | 'network' | 'blocked' | 'redirect' */
+	failureKind: text('failure_kind'),
+	checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 /** GitHub repositories synced from the configured account, with editable overrides. */
 export const githubProject = pgTable('github_project', {
 	id: serial('id').primaryKey(),
@@ -133,6 +145,7 @@ export const marketWatchlist = pgTable('market_watchlist', {
 
 export type Website = typeof website.$inferSelect;
 export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
+export type WebsiteHealth = typeof websiteHealth.$inferSelect;
 export type GithubProject = typeof githubProject.$inferSelect;
 export type City = typeof city.$inferSelect;
 export type SupportedMarket = typeof supportedMarket.$inferSelect;
