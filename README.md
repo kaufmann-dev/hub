@@ -32,7 +32,8 @@ area for editing everything. It also shows stock-market status cards for curated
   per-project overrides (hide, custom description) and admin drag ordering.
 - **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
-  cities, markets), bulk icon refresh, and a "Sync now" button.
+  cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a
+  "Sync now" button.
 
 ## Environment
 

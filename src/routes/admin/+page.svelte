@@ -13,8 +13,20 @@
 		EyeOff,
 		Star,
 		ArrowLeft,
-		GripVertical
+		LoaderCircle
 	} from '@lucide/svelte';
+	import { SOURCES, TRIGGERS, type DndEvent } from 'svelte-dnd-action';
+	import {
+		flattenZoneIds,
+		groupValueById,
+		replaceZone,
+		sameOrder,
+		sameRecord,
+		toSortItems,
+		type AdminSortItem,
+		type SortZones
+	} from '$lib/admin/reorder';
+	import AdminSortableList from '$lib/components/admin/AdminSortableList.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Tabs from '$lib/components/ui/tabs';
@@ -23,10 +35,14 @@
 	type AdminTab = 'websites' | 'projects' | 'cities' | 'markets';
 	type WebsiteKind = 'personal' | 'third_party';
 	type ProjectGroup = 'active' | 'inactive';
-	type DropGroup = WebsiteKind | ProjectGroup;
 	type Row = { id: number };
+	type WebsiteZones = SortZones<WebsiteKind>;
+	type ProjectZones = SortZones<ProjectGroup>;
+	type SortEvent = CustomEvent<DndEvent<AdminSortItem>>;
 
 	const adminTabs = ['websites', 'projects', 'cities', 'markets'] as const;
+	const websiteGroupOrder = ['personal', 'third_party'] as const;
+	const projectGroupOrder = ['active', 'inactive'] as const;
 
 	let { data }: { data: PageData } = $props();
 	let syncing = $state(false);
@@ -37,13 +53,16 @@
 	let marketImportStatus = $state<{ ok: boolean; message: string } | null>(null);
 	let reorderError = $state('');
 	let savingReorder = $state<AdminTab | null>(null);
-	let dragging = $state<{ type: AdminTab; id: number } | null>(null);
 	let websiteOrder = $state.raw<number[] | null>(null);
 	let projectOrder = $state.raw<number[] | null>(null);
 	let cityOrder = $state.raw<number[] | null>(null);
 	let marketOrder = $state.raw<number[] | null>(null);
 	let websiteKindOverrides = $state.raw<Record<string, WebsiteKind>>({});
 	let projectHiddenOverrides = $state.raw<Record<string, boolean>>({});
+	let websiteDraft = $state.raw<WebsiteZones | null>(null);
+	let projectDraft = $state.raw<ProjectZones | null>(null);
+	let cityDraft = $state.raw<AdminSortItem[] | null>(null);
+	let marketDraft = $state.raw<AdminSortItem[] | null>(null);
 	let activeTab = $derived(normalizeTab(page.url.searchParams.get('tab')));
 	let displayedWebsites = $derived(
 		orderedRows(data.websites, websiteOrder).map((site) => ({
@@ -55,12 +74,32 @@
 	let thirdPartyWebsites = $derived(
 		displayedWebsites.filter((site) => site.kind === 'third_party')
 	);
-	let websiteGroups = $derived(
-		[
-			{ id: 'personal' as const, title: 'Personal websites', rows: personalWebsites },
-			{ id: 'third_party' as const, title: 'Third-party websites', rows: thirdPartyWebsites }
-		].filter((group) => group.rows.length > 0)
-	);
+	let websiteGroups = $derived([
+		{
+			id: 'personal' as const,
+			title: 'Personal websites',
+			emptyLabel: 'Drop personal websites here'
+		},
+		{
+			id: 'third_party' as const,
+			title: 'Third-party websites',
+			emptyLabel: 'Drop third-party websites here'
+		}
+	]);
+	let baseWebsiteZones = $derived<WebsiteZones>({
+		personal: toSortItems(
+			personalWebsites,
+			(site) => site.title,
+			(site) => site.hidden
+		),
+		third_party: toSortItems(
+			thirdPartyWebsites,
+			(site) => site.title,
+			(site) => site.hidden
+		)
+	});
+	let websiteZones = $derived(websiteDraft ?? baseWebsiteZones);
+	let websiteById = $derived(new Map(displayedWebsites.map((site) => [site.id, site])));
 	let displayedProjects = $derived(
 		orderedRows(data.projects, projectOrder).map((project) => ({
 			...project,
@@ -70,14 +109,44 @@
 	let allHidden = $derived(displayedProjects.every((p) => p.hidden));
 	let activeProjects = $derived(displayedProjects.filter((project) => !project.hidden));
 	let inactiveProjects = $derived(displayedProjects.filter((project) => project.hidden));
-	let projectGroups = $derived(
-		[
-			{ id: 'active' as const, title: 'Active projects', rows: activeProjects },
-			{ id: 'inactive' as const, title: 'Inactive projects', rows: inactiveProjects }
-		].filter((group) => group.rows.length > 0)
-	);
+	let projectGroups = $derived([
+		{ id: 'active' as const, title: 'Active projects', emptyLabel: 'Drop active projects here' },
+		{
+			id: 'inactive' as const,
+			title: 'Inactive projects',
+			emptyLabel: 'Drop inactive projects here'
+		}
+	]);
+	let baseProjectZones = $derived<ProjectZones>({
+		active: toSortItems(activeProjects, (project) => project.name),
+		inactive: toSortItems(
+			inactiveProjects,
+			(project) => project.name,
+			() => true
+		)
+	});
+	let projectZones = $derived(projectDraft ?? baseProjectZones);
+	let projectById = $derived(new Map(displayedProjects.map((project) => [project.id, project])));
 	let displayedCities = $derived(orderedRows(data.cities, cityOrder));
 	let displayedMarkets = $derived(orderedRows(data.markets, marketOrder));
+	let cityItems = $derived(
+		cityDraft ??
+			toSortItems(
+				displayedCities,
+				(city) => city.name,
+				(city) => city.hidden
+			)
+	);
+	let marketItems = $derived(
+		marketDraft ??
+			toSortItems(
+				displayedMarkets,
+				(market) => market.market.title,
+				(market) => market.hidden
+			)
+	);
+	let cityById = $derived(new Map(displayedCities.map((city) => [city.id, city])));
+	let marketById = $derived(new Map(displayedMarkets.map((market) => [market.id, market])));
 
 	function normalizeTab(tab: string | null): AdminTab {
 		return adminTabs.includes(tab as AdminTab) ? (tab as AdminTab) : 'websites';
@@ -151,32 +220,6 @@
 		}
 	}
 
-	function movedIds(
-		ids: number[],
-		sourceId: number,
-		targetId: number,
-		afterTarget: boolean
-	): number[] {
-		const withoutSource = ids.filter((id) => id !== sourceId);
-		const targetIndex = withoutSource.indexOf(targetId);
-		if (targetIndex === -1) return ids;
-
-		const insertIndex = targetIndex + (afterTarget ? 1 : 0);
-		return [...withoutSource.slice(0, insertIndex), sourceId, ...withoutSource.slice(insertIndex)];
-	}
-
-	function handleDragStart(type: AdminTab, id: number, event: DragEvent) {
-		dragging = { type, id };
-		reorderError = '';
-		event.dataTransfer?.setData('text/plain', String(id));
-		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
-	}
-
-	function handleDragOver(event: DragEvent) {
-		event.preventDefault();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-	}
-
 	function reorderBody(
 		type: AdminTab,
 		ids: number[],
@@ -191,64 +234,44 @@
 	function clearProjectOverrides() {
 		projectHiddenOverrides = {};
 		projectOrder = null;
+		projectDraft = null;
 	}
 
-	async function handleDrop(
+	function clearDraft(type: AdminTab) {
+		if (type === 'websites') websiteDraft = null;
+		else if (type === 'projects') projectDraft = null;
+		else if (type === 'cities') cityDraft = null;
+		else marketDraft = null;
+	}
+
+	async function persistReorder(
 		type: AdminTab,
-		targetId: number,
-		event: DragEvent,
-		targetGroup?: DropGroup
+		nextIds: number[],
+		nextWebsiteKinds = websiteKindById(),
+		nextProjectHidden = projectHiddenById()
 	) {
-		event.preventDefault();
-		const sourceId =
-			dragging?.type === type ? dragging.id : Number(event.dataTransfer?.getData('text/plain'));
-		dragging = null;
-
-		if (!Number.isInteger(sourceId) || sourceId === targetId) return;
-
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLElement)) return;
-
-		const bounds = target.getBoundingClientRect();
-		const afterTarget = event.clientY > bounds.top + bounds.height / 2;
 		const previousIds = currentIds(type);
-		const nextIds = movedIds(previousIds, sourceId, targetId, afterTarget);
-		const groupChanged =
-			(type === 'websites' &&
-				(targetGroup === 'personal' || targetGroup === 'third_party') &&
-				websiteKindById()[String(sourceId)] !== targetGroup) ||
-			(type === 'projects' &&
-				(targetGroup === 'active' || targetGroup === 'inactive') &&
-				projectHiddenById()[String(sourceId)] !== (targetGroup === 'inactive'));
-		if (nextIds.join(',') === previousIds.join(',') && !groupChanged) return;
-
 		const previousWebsiteKindOverrides = websiteKindOverrides;
 		const previousProjectHiddenOverrides = projectHiddenOverrides;
-		let nextWebsiteKindOverrides = websiteKindOverrides;
-		let nextProjectHiddenOverrides = projectHiddenOverrides;
-
-		if (type === 'websites' && (targetGroup === 'personal' || targetGroup === 'third_party')) {
-			nextWebsiteKindOverrides = { ...websiteKindOverrides, [sourceId]: targetGroup };
-			websiteKindOverrides = nextWebsiteKindOverrides;
+		const orderChanged = !sameOrder(previousIds, nextIds);
+		const groupChanged =
+			(type === 'websites' && !sameRecord(websiteKindById(), nextWebsiteKinds)) ||
+			(type === 'projects' && !sameRecord(projectHiddenById(), nextProjectHidden));
+		if (!orderChanged && !groupChanged) {
+			clearDraft(type);
+			return;
 		}
 
-		if (type === 'projects' && (targetGroup === 'active' || targetGroup === 'inactive')) {
-			nextProjectHiddenOverrides = {
-				...projectHiddenOverrides,
-				[sourceId]: targetGroup === 'inactive'
-			};
-			projectHiddenOverrides = nextProjectHiddenOverrides;
-		}
-
+		reorderError = '';
 		setOrder(type, nextIds);
+		if (type === 'websites') websiteKindOverrides = nextWebsiteKinds;
+		if (type === 'projects') projectHiddenOverrides = nextProjectHidden;
 		savingReorder = type;
 		try {
 			const response = await fetch('/admin/api/reorder', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(
-					reorderBody(type, nextIds, nextWebsiteKindOverrides, nextProjectHiddenOverrides)
-				)
+				body: JSON.stringify(reorderBody(type, nextIds, nextWebsiteKinds, nextProjectHidden))
 			});
 
 			if (!response.ok) throw new Error('Reorder failed');
@@ -258,10 +281,133 @@
 			projectHiddenOverrides = previousProjectHiddenOverrides;
 			reorderError = 'Order could not be saved.';
 		} finally {
+			clearDraft(type);
 			savingReorder = null;
 		}
 	}
+
+	function updateWebsiteDraft(group: WebsiteKind, items: AdminSortItem[]): WebsiteZones {
+		const next = replaceZone(websiteDraft ?? websiteZones, group, items);
+		websiteDraft = next;
+		return next;
+	}
+
+	function updateProjectDraft(group: ProjectGroup, items: AdminSortItem[]): ProjectZones {
+		const next = replaceZone(projectDraft ?? projectZones, group, items);
+		projectDraft = next;
+		return next;
+	}
+
+	function commitWebsites(zones: WebsiteZones) {
+		void persistReorder(
+			'websites',
+			flattenZoneIds(zones, websiteGroupOrder),
+			groupValueById(zones, { personal: 'personal', third_party: 'third_party' })
+		);
+	}
+
+	function commitProjects(zones: ProjectZones) {
+		void persistReorder(
+			'projects',
+			flattenZoneIds(zones, projectGroupOrder),
+			websiteKindById(),
+			groupValueById(zones, { active: false, inactive: true })
+		);
+	}
+
+	function handleWebsiteConsider(group: WebsiteKind, event: SortEvent) {
+		const zones = updateWebsiteDraft(group, event.detail.items);
+		const { source, trigger } = event.detail.info;
+		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
+			commitWebsites(zones);
+		}
+	}
+
+	function handleWebsiteFinalize(group: WebsiteKind, event: SortEvent) {
+		const zones = updateWebsiteDraft(group, event.detail.items);
+		const { source, trigger } = event.detail.info;
+		if (source !== SOURCES.POINTER) return;
+		if (trigger === TRIGGERS.DROPPED_OUTSIDE_OF_ANY) {
+			websiteDraft = null;
+		} else if (trigger === TRIGGERS.DROPPED_INTO_ZONE) {
+			commitWebsites(zones);
+		}
+	}
+
+	function handleProjectConsider(group: ProjectGroup, event: SortEvent) {
+		const zones = updateProjectDraft(group, event.detail.items);
+		const { source, trigger } = event.detail.info;
+		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
+			commitProjects(zones);
+		}
+	}
+
+	function handleProjectFinalize(group: ProjectGroup, event: SortEvent) {
+		const zones = updateProjectDraft(group, event.detail.items);
+		const { source, trigger } = event.detail.info;
+		if (source !== SOURCES.POINTER) return;
+		if (trigger === TRIGGERS.DROPPED_OUTSIDE_OF_ANY) {
+			projectDraft = null;
+		} else if (trigger === TRIGGERS.DROPPED_INTO_ZONE) {
+			commitProjects(zones);
+		}
+	}
+
+	function handleCityConsider(event: SortEvent) {
+		cityDraft = [...event.detail.items];
+		const { source, trigger } = event.detail.info;
+		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
+			void persistReorder('cities', flattenZoneIds({ cities: cityDraft }, ['cities']));
+		}
+	}
+
+	function handleCityFinalize(event: SortEvent) {
+		cityDraft = [...event.detail.items];
+		const { source, trigger } = event.detail.info;
+		if (source !== SOURCES.POINTER) return;
+		if (trigger === TRIGGERS.DROPPED_OUTSIDE_OF_ANY) {
+			cityDraft = null;
+		} else if (trigger === TRIGGERS.DROPPED_INTO_ZONE) {
+			void persistReorder('cities', flattenZoneIds({ cities: cityDraft }, ['cities']));
+		}
+	}
+
+	function handleMarketConsider(event: SortEvent) {
+		marketDraft = [...event.detail.items];
+		const { source, trigger } = event.detail.info;
+		if (trigger === TRIGGERS.DRAG_STARTED) reorderError = '';
+		if (source === SOURCES.KEYBOARD && trigger === TRIGGERS.DRAG_STOPPED) {
+			void persistReorder('markets', flattenZoneIds({ markets: marketDraft }, ['markets']));
+		}
+	}
+
+	function handleMarketFinalize(event: SortEvent) {
+		marketDraft = [...event.detail.items];
+		const { source, trigger } = event.detail.info;
+		if (source !== SOURCES.POINTER) return;
+		if (trigger === TRIGGERS.DROPPED_OUTSIDE_OF_ANY) {
+			marketDraft = null;
+		} else if (trigger === TRIGGERS.DROPPED_INTO_ZONE) {
+			void persistReorder('markets', flattenZoneIds({ markets: marketDraft }, ['markets']));
+		}
+	}
 </script>
+
+{#snippet reorderStatus(type: AdminTab)}
+	{#if savingReorder === type}
+		<p
+			class="text-muted-foreground flex items-center justify-end gap-1.5 text-sm"
+			aria-live="polite"
+		>
+			<LoaderCircle class="size-3.5 animate-spin" /> Saving order…
+		</p>
+	{:else if reorderError && activeTab === type}
+		<p class="text-destructive text-sm" role="alert">{reorderError}</p>
+	{/if}
+{/snippet}
 
 <svelte:head><title>Admin · Hub</title></svelte:head>
 
@@ -336,9 +482,7 @@
 						<Plus class="size-4" /> Add website
 					</a>
 				</div>
-				{#if reorderError && activeTab === 'websites'}
-					<p class="text-destructive text-sm">{reorderError}</p>
-				{/if}
+				{@render reorderStatus('websites')}
 				<div class="space-y-5">
 					{#each websiteGroups as group (group.id)}
 						<section class="space-y-3" aria-labelledby={`websites-${group.id}`}>
@@ -348,28 +492,18 @@
 							>
 								{group.title}
 							</h2>
-							<div class="space-y-3" role="list" aria-label={group.title}>
-								{#each group.rows as site (site.id)}
-									<div
-										class={[
-											'bg-card flex items-center gap-3 rounded-lg border p-3',
-											site.hidden && 'opacity-50'
-										]}
-										role="listitem"
-										ondragover={handleDragOver}
-										ondrop={(event) => handleDrop('websites', site.id, event, group.id)}
-									>
-										<button
-											type="button"
-											class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-											draggable="true"
-											aria-label={`Drag ${site.title}`}
-											disabled={savingReorder === 'websites'}
-											ondragstart={(event) => handleDragStart('websites', site.id, event)}
-											ondragend={() => (dragging = null)}
-										>
-											<GripVertical class="size-4" />
-										</button>
+							<AdminSortableList
+								items={websiteZones[group.id]}
+								label={group.title}
+								zoneType="admin-websites"
+								disabled={savingReorder === 'websites'}
+								emptyLabel={group.emptyLabel}
+								onConsider={(event) => handleWebsiteConsider(group.id, event)}
+								onFinalize={(event) => handleWebsiteFinalize(group.id, event)}
+							>
+								{#snippet row(item)}
+									{@const site = websiteById.get(item.rowId)}
+									{#if site}
 										<div class="min-w-0 flex-1">
 											<div class="font-medium">{site.title}</div>
 											<div class="text-muted-foreground truncate text-sm">{site.url}</div>
@@ -399,12 +533,10 @@
 												<Trash2 class="text-destructive size-4" />
 											</Button>
 										</form>
-									</div>
-								{/each}
-							</div>
+									{/if}
+								{/snippet}
+							</AdminSortableList>
 						</section>
-					{:else}
-						<p class="text-muted-foreground text-sm">No websites yet.</p>
 					{/each}
 				</div>
 			</Tabs.Content>
@@ -460,9 +592,7 @@
 						</Button>
 					</form>
 				</div>
-				{#if reorderError && activeTab === 'projects'}
-					<p class="text-destructive text-sm">{reorderError}</p>
-				{/if}
+				{@render reorderStatus('projects')}
 				<div class="space-y-5">
 					{#each projectGroups as group (group.id)}
 						<section class="space-y-3" aria-labelledby={`projects-${group.id}`}>
@@ -472,28 +602,18 @@
 							>
 								{group.title}
 							</h2>
-							<div class="space-y-3" role="list" aria-label={group.title}>
-								{#each group.rows as project (project.id)}
-									<div
-										class={[
-											'bg-card flex items-center gap-3 rounded-lg border p-3',
-											project.hidden && 'opacity-50'
-										]}
-										role="listitem"
-										ondragover={handleDragOver}
-										ondrop={(event) => handleDrop('projects', project.id, event, group.id)}
-									>
-										<button
-											type="button"
-											class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-											draggable="true"
-											aria-label={`Drag ${project.name}`}
-											disabled={savingReorder === 'projects'}
-											ondragstart={(event) => handleDragStart('projects', project.id, event)}
-											ondragend={() => (dragging = null)}
-										>
-											<GripVertical class="size-4" />
-										</button>
+							<AdminSortableList
+								items={projectZones[group.id]}
+								label={group.title}
+								zoneType="admin-projects"
+								disabled={savingReorder === 'projects'}
+								emptyLabel={group.emptyLabel}
+								onConsider={(event) => handleProjectConsider(group.id, event)}
+								onFinalize={(event) => handleProjectFinalize(group.id, event)}
+							>
+								{#snippet row(item)}
+									{@const project = projectById.get(item.rowId)}
+									{#if project}
 										<div class="min-w-0 flex-1">
 											<div class="flex items-center gap-2 font-medium">
 												{project.name}
@@ -537,12 +657,10 @@
 										>
 											<Pencil class="size-4" />
 										</a>
-									</div>
-								{/each}
-							</div>
+									{/if}
+								{/snippet}
+							</AdminSortableList>
 						</section>
-					{:else}
-						<p class="text-muted-foreground text-sm">No projects synced yet. Click “Sync now”.</p>
 					{/each}
 				</div>
 			</Tabs.Content>
@@ -554,31 +672,19 @@
 						<Plus class="size-4" /> Add city
 					</a>
 				</div>
-				{#if reorderError && activeTab === 'cities'}
-					<p class="text-destructive text-sm">{reorderError}</p>
-				{/if}
-				<div class="space-y-3" role="list" aria-label="Cities">
-					{#each displayedCities as c (c.id)}
-						<div
-							class={[
-								'bg-card flex items-center gap-3 rounded-lg border p-3',
-								c.hidden && 'opacity-50'
-							]}
-							role="listitem"
-							ondragover={handleDragOver}
-							ondrop={(event) => handleDrop('cities', c.id, event)}
-						>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-								draggable="true"
-								aria-label={`Drag ${c.name}`}
-								disabled={savingReorder === 'cities'}
-								ondragstart={(event) => handleDragStart('cities', c.id, event)}
-								ondragend={() => (dragging = null)}
-							>
-								<GripVertical class="size-4" />
-							</button>
+				{@render reorderStatus('cities')}
+				<AdminSortableList
+					items={cityItems}
+					label="Cities"
+					zoneType="admin-cities"
+					disabled={savingReorder === 'cities'}
+					emptyLabel="No cities yet"
+					onConsider={handleCityConsider}
+					onFinalize={handleCityFinalize}
+				>
+					{#snippet row(item)}
+						{@const c = cityById.get(item.rowId)}
+						{#if c}
 							<div class="min-w-0 flex-1">
 								<div class="font-medium">{c.name}</div>
 								<div class="text-muted-foreground truncate text-sm">
@@ -610,11 +716,9 @@
 									<Trash2 class="text-destructive size-4" />
 								</Button>
 							</form>
-						</div>
-					{:else}
-						<p class="text-muted-foreground text-sm">No cities yet.</p>
-					{/each}
-				</div>
+						{/if}
+					{/snippet}
+				</AdminSortableList>
 			</Tabs.Content>
 
 			<!-- Markets -->
@@ -671,31 +775,19 @@
 						<Plus class="size-4" /> Add market
 					</a>
 				</div>
-				{#if reorderError && activeTab === 'markets'}
-					<p class="text-destructive text-sm">{reorderError}</p>
-				{/if}
-				<div class="space-y-3" role="list" aria-label="Markets">
-					{#each displayedMarkets as market (market.id)}
-						<div
-							class={[
-								'bg-card flex items-center gap-3 rounded-lg border p-3',
-								market.hidden && 'opacity-50'
-							]}
-							role="listitem"
-							ondragover={handleDragOver}
-							ondrop={(event) => handleDrop('markets', market.id, event)}
-						>
-							<button
-								type="button"
-								class="text-muted-foreground hover:text-foreground cursor-grab rounded-md p-1 active:cursor-grabbing"
-								draggable="true"
-								aria-label={`Drag ${market.market.title}`}
-								disabled={savingReorder === 'markets'}
-								ondragstart={(event) => handleDragStart('markets', market.id, event)}
-								ondragend={() => (dragging = null)}
-							>
-								<GripVertical class="size-4" />
-							</button>
+				{@render reorderStatus('markets')}
+				<AdminSortableList
+					items={marketItems}
+					label="Markets"
+					zoneType="admin-markets"
+					disabled={savingReorder === 'markets'}
+					emptyLabel="No markets configured"
+					onConsider={handleMarketConsider}
+					onFinalize={handleMarketFinalize}
+				>
+					{#snippet row(item)}
+						{@const market = marketById.get(item.rowId)}
+						{#if market}
 							<div class="min-w-0 flex-1">
 								<div class="font-medium">{market.market.title}</div>
 								<div class="text-muted-foreground truncate text-sm">
@@ -727,13 +819,9 @@
 									<Trash2 class="text-destructive size-4" />
 								</Button>
 							</form>
-						</div>
-					{:else}
-						<p class="text-muted-foreground text-sm">
-							No markets configured. Add one exchange or import the canonical catalog.
-						</p>
-					{/each}
-				</div>
+						{/if}
+					{/snippet}
+				</AdminSortableList>
 			</Tabs.Content>
 		</Tabs.Root>
 	</main>

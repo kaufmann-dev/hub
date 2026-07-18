@@ -11,9 +11,7 @@ import { getWeather } from '$lib/server/weather';
  */
 export const GET: RequestHandler = async () => {
 	const cities = await db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name));
-	const weather = await Promise.all(
-		cities.map(async (c) => [c.id, await getWeather(c)] as const)
-	);
+	const weather = await Promise.all(cities.map(async (c) => [c.id, await getWeather(c)] as const));
 
 	return json({ weatherByCity: Object.fromEntries(weather) });
 };
