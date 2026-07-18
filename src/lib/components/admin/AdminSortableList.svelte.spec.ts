@@ -9,7 +9,8 @@ describe('AdminSortableList', () => {
 	it('uses the full left gutter as its handle without moving row content', async () => {
 		render(AdminSortableListTest);
 
-		const handle = page.getByRole('button', { name: 'Reorder Alpha' }).element();
+		const handleLocator = page.getByRole('button', { name: 'Reorder Alpha' });
+		const handle = handleLocator.element();
 		const row = handle.closest('[data-sort-item]');
 		expect(row).toBeInstanceOf(HTMLElement);
 
@@ -18,6 +19,10 @@ describe('AdminSortableList', () => {
 		expect(handleRect.width).toBe(48);
 		expect(Math.abs(handleRect.height - rowRect.height)).toBeLessThanOrEqual(2);
 		expect(Math.abs(handleRect.left - rowRect.left)).toBeLessThanOrEqual(1);
+
+		const restingBackground = getComputedStyle(handle).backgroundColor;
+		await handleLocator.hover();
+		expect(getComputedStyle(handle).backgroundColor).toBe(restingBackground);
 	});
 
 	it('keeps row actions independent from the drag handle', async () => {
