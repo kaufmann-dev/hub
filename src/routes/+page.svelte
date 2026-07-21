@@ -381,7 +381,7 @@
 													title={statusLabel}
 													data-health-status={health?.state ?? 'unknown'}
 													class={[
-													'size-2 shrink-0 rounded-full',
+														'size-2 shrink-0 rounded-full',
 														health?.state === 'healthy'
 															? 'bg-emerald-500'
 															: health?.state === 'unhealthy'

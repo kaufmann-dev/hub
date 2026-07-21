@@ -33,7 +33,7 @@ pnpm drizzle-kit migrate     # Execute migrations
 - **Icons**: `@lucide/svelte`
 - **Theme**: `mode-watcher`
 - **Database**: Drizzle with PostgreSQL
-- **Auth**: Single-password admin gate (`ADMIN_PASSWORD` + signed cookie in `src/lib/server/auth.ts`). Better Auth is installed but not used.
+- **Auth**: OIDC (Pocket ID) admin gate via `openid-client` in `src/lib/server/auth/`. Better Auth is installed but not used.
 - **Forms**: Superforms and Zod
 - **Email**: Resend and `better-svelte-email`
 - **i18n**: Paraglide
@@ -186,7 +186,7 @@ Avoid these legacy Svelte features in new or refactored code:
 
 ## Backend and Services
 
-- **Authentication**: The hub uses a single-password admin gate, not Better Auth. `verifyPassword`/session-cookie helpers live in `src/lib/server/auth.ts`; `hooks.server.ts` sets `locals.isAdmin`; `/admin` is guarded in `src/routes/admin/+layout.server.ts` and every admin action re-checks `locals.isAdmin`.
+- **Authentication**: The hub uses OIDC (Authorization Code + PKCE S256, confidential client with `client_secret_post`) against Pocket ID, not Better Auth. The provider access policy is the sole admission control. The OIDC client lives in `src/lib/server/auth/` (`settings`, `oidc`, `session`, `session-policy`); `hooks.server.ts` reads the database-backed session into `locals.session`/`locals.isAdmin`; `/admin` is guarded in `src/routes/admin/+layout.server.ts` and every admin action re-checks `locals.isAdmin`. Sessions live in the `app_session` table (24 h sliding idle reset only by the explicit `POST /auth/activity` signal, 7-day absolute) with the ID token retained server-side only as `id_token_hint` for RP-initiated logout (`POST /auth/logout`); the `/auth/login`, `/auth/callback`, `/auth/logout`, and `/auth/activity` routes implement the flow.
 - **Forms**: Always use Superforms with Zod. Follow the chain: `zod schema -> superforms -> formsnap -> shadcn-svelte form components`. Use `Form.Field`, `Form.Control`, and shadcn error components rather than ad hoc markup.
 - **Email**: Use `better-svelte-email` for templates and Resend for delivery. Render components in server-only code, and send both HTML and plain text.
   ```ts

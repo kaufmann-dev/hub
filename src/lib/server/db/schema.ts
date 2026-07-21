@@ -7,7 +7,8 @@ import {
 	timestamp,
 	date,
 	doublePrecision,
-	customType
+	customType,
+	index
 } from 'drizzle-orm/pg-core';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -143,6 +144,34 @@ export const marketWatchlist = pgTable('market_watchlist', {
 	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+/** Server-side admin session created after OIDC login; the cookie holds only the opaque token. */
+export const appSession = pgTable(
+	'app_session',
+	{
+		tokenHash: text('token_hash').primaryKey(),
+		/** Raw ID token kept only as id_token_hint for RP-initiated logout. */
+		idToken: text('id_token').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+		lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull()
+	},
+	(table) => [index('app_session_expires_at_idx').on(table.expiresAt)]
+);
+
+/** Short-lived OIDC authorization transaction (state/nonce/PKCE) bound to the browser flow cookie. */
+export const oidcTransaction = pgTable(
+	'oidc_transaction',
+	{
+		stateHash: text('state_hash').primaryKey(),
+		browserTokenHash: text('browser_token_hash').notNull(),
+		nonce: text('nonce').notNull(),
+		codeVerifier: text('code_verifier').notNull(),
+		expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(table) => [index('oidc_transaction_expires_at_idx').on(table.expiresAt)]
+);
+
 export type Website = typeof website.$inferSelect;
 export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
 export type WebsiteHealth = typeof websiteHealth.$inferSelect;
@@ -152,3 +181,5 @@ export type SupportedMarket = typeof supportedMarket.$inferSelect;
 export type SupportedMarketSession = typeof supportedMarketSession.$inferSelect;
 export type SupportedMarketClosure = typeof supportedMarketClosure.$inferSelect;
 export type MarketWatchlist = typeof marketWatchlist.$inferSelect;
+export type AppSession = typeof appSession.$inferSelect;
+export type OidcTransaction = typeof oidcTransaction.$inferSelect;

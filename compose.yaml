@@ -33,8 +33,9 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/hub
       ORIGIN: ${ORIGIN:-http://localhost:3000}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
-      ADMIN_SESSION_SECRET: ${ADMIN_SESSION_SECRET:-change-me-in-production}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-hub}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       GITHUB_USERNAME: ${GITHUB_USERNAME:-kaufmann-dev}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     ports:

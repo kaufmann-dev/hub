@@ -1,17 +1,10 @@
 <script lang="ts">
-	import { superForm } from 'sveltekit-superforms';
-	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { LockKeyhole } from '@lucide/svelte';
-	import { loginSchema } from '$lib/schemas';
-	import * as Form from '$lib/components/ui/form';
-	import { Input } from '$lib/components/ui/input';
-	import type { PageData } from './$types';
+	import { Button } from '$lib/components/ui/button';
 
-	let { data }: { data: PageData } = $props();
-
-	// svelte-ignore state_referenced_locally (Superforms is initialized once from page load data.)
-	const form = superForm(data.form, { validators: zod4Client(loginSchema) });
-	const { form: formData, enhance, message } = form;
+	const oidcError = $derived(page.url.searchParams.get('error') === 'oidc');
 </script>
 
 <svelte:head><title>Admin · Login</title></svelte:head>
@@ -23,22 +16,10 @@
 			<h1 class="text-lg font-semibold">Admin login</h1>
 		</div>
 
-		<form method="POST" use:enhance class="space-y-4">
-			<Form.Field {form} name="password">
-				<Form.Control>
-					{#snippet children({ props })}
-						<Form.Label>Password</Form.Label>
-						<Input {...props} type="password" bind:value={$formData.password} autofocus />
-					{/snippet}
-				</Form.Control>
-				<Form.FieldErrors />
-			</Form.Field>
+		{#if oidcError}
+			<p class="text-destructive mb-4 text-sm">Sign-in failed. Please try again.</p>
+		{/if}
 
-			{#if $message}
-				<p class="text-destructive text-sm">{$message}</p>
-			{/if}
-
-			<Form.Button class="w-full">Sign in</Form.Button>
-		</form>
+		<Button href={resolve('/auth/login')} class="w-full">Sign in with Pocket ID</Button>
 	</div>
 </div>

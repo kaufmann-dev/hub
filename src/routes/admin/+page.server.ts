@@ -1,10 +1,9 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '$lib/server/db';
 import { website, githubProject, city, marketWatchlist } from '$lib/server/db/schema';
 import { syncGithubProjects } from '$lib/server/github';
 import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
-import { SESSION_COOKIE } from '$lib/server/auth';
 import {
 	getConfiguredMarkets,
 	getSupportedMarkets,
@@ -155,11 +154,5 @@ export const actions: Actions = {
 		if (!locals.isAdmin) return fail(403);
 		const counts = await refreshAllWebsiteFavicons();
 		return { success: true, ...counts };
-	},
-
-	logout: async ({ cookies, locals }) => {
-		if (!locals.isAdmin) return fail(403);
-		cookies.delete(SESSION_COOKIE, { path: '/' });
-		redirect(303, '/');
 	}
 };

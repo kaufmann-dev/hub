@@ -414,7 +414,7 @@
 				</a>
 				<h1 class="text-lg font-semibold">Hub admin</h1>
 			</div>
-			<form method="POST" action="?/logout" use:enhance>
+			<form method="POST" action="/auth/logout">
 				<Button type="submit" variant="outline" size="sm">
 					<LogOut class="size-4" /> Logout
 				</Button>

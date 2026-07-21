@@ -2,7 +2,7 @@
 
 A personal startpage served at `hub.kaufmann.dev`. It gives an instant overview of personal
 and third-party websites and GitHub projects, with a top filter bar that searches them as you
-type, live clocks and current weather for configurable cities, and a password-protected admin
+type, live clocks and current weather for configurable cities, and an OIDC-protected admin
 area for editing everything. It also shows stock-market status cards for curated exchanges.
 
 | Category     | Tools                                                     |
@@ -30,23 +30,37 @@ area for editing everything. It also shows stock-market status cards for curated
   theme-aware favicons and cached server-side availability indicators for personal sites.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
-- **Admin** (`/admin`) — gated by a single password; CRUD for websites and cities, watchlist
+- **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
   cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a
   "Sync now" button.
+
+## Authentication Setup
+
+Hub protects `/admin` with an OIDC Authorization Code + PKCE S256 flow against a confidential
+Pocket ID client: the provider authenticates the user and its access policy is the only admission
+gate, then the app creates a server-side session (24 h idle / 7 d absolute) with an HttpOnly
+cookie. Admission of users is managed entirely in Pocket ID.
+
+- Public Client: Off
+- Callback URL: `/auth/callback`
+- Logout Callback URL: `/`
+- Authentication environment variables (see [Environment](#environment)): `OIDC_ISSUER`,
+  `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` (all required), plus the public app origin `ORIGIN`.
 
 ## Environment
 
 Copy `.env.example` to `.env` and fill it in:
 
-| Variable               | Purpose                                                               |
-| ---------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`         | PostgreSQL connection string                                          |
-| `ORIGIN`               | Public origin (required by adapter-node for form POST/CSRF in prod)   |
-| `ADMIN_PASSWORD`       | Password for `/admin`                                                 |
-| `ADMIN_SESSION_SECRET` | Secret used to sign the admin session cookie (`openssl rand -hex 32`) |
-| `GITHUB_USERNAME`      | GitHub account whose public repos are synced (default `kaufmann-dev`) |
-| `GITHUB_TOKEN`         | Optional; enables private owned repos when the token has access       |
+| Variable             | Purpose                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `DATABASE_URL`       | PostgreSQL connection string                                          |
+| `ORIGIN`             | Public origin (required by adapter-node for form POST/CSRF in prod)   |
+| `OIDC_ISSUER`        | OIDC issuer URL for discovery                                         |
+| `OIDC_CLIENT_ID`     | Confidential OIDC client ID                                           |
+| `OIDC_CLIENT_SECRET` | Confidential OIDC client secret                                       |
+| `GITHUB_USERNAME`    | GitHub account whose public repos are synced (default `kaufmann-dev`) |
+| `GITHUB_TOKEN`       | Optional; enables private owned repos when the token has access       |
 
 ## Development
 
@@ -97,8 +111,8 @@ To seed the compose DB (exposed on host port `5433`) once:
 DATABASE_URL=postgres://postgres:postgres@localhost:5433/hub pnpm db:seed
 ```
 
-Set `ORIGIN`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, and optionally `GITHUB_TOKEN` in your
-environment (or `.env`) before bringing the stack up.
+Set `ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and optionally
+`GITHUB_TOKEN` in your environment (or `.env`) before bringing the stack up.
 
 ## Coolify Deployment
 
@@ -120,8 +134,9 @@ Required:
 
 - `DATABASE_URL` — PostgreSQL connection string
 - `ORIGIN` — public origin required by adapter-node for form POST/CSRF; set to `https://hub.kaufmann.dev`
-- `ADMIN_PASSWORD` — password for `/admin`
-- `ADMIN_SESSION_SECRET` — secret signing the admin session cookie (`openssl rand -hex 32`)
+- `OIDC_ISSUER` — OIDC issuer URL for discovery
+- `OIDC_CLIENT_ID` — confidential OIDC client ID
+- `OIDC_CLIENT_SECRET` — confidential OIDC client secret
 
 Optional:
 

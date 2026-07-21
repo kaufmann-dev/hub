@@ -64,6 +64,13 @@
       "when": 1784365658163,
       "tag": "0008_late_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784644150187,
+      "tag": "0009_illegal_secret_warriors",
+      "breakpoints": true
     }
   ]
 }
