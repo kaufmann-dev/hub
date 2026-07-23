@@ -424,7 +424,7 @@
 
 	<main class="mx-auto max-w-5xl px-4 py-6">
 		<Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-			<Tabs.List>
+			<Tabs.List class="max-w-full justify-start overflow-x-auto">
 				<Tabs.Trigger value="websites">Websites ({data.websites.length})</Tabs.Trigger>
 				<Tabs.Trigger value="projects">Projects ({data.projects.length})</Tabs.Trigger>
 				<Tabs.Trigger value="cities">Cities ({data.cities.length})</Tabs.Trigger>
