@@ -16,6 +16,16 @@ describe('website health checks', () => {
 			failureKind: null
 		});
 		expect(cancel).toHaveBeenCalledOnce();
+		expect(fetcher).toHaveBeenCalledWith(
+			new URL('https://example.com/'),
+			expect.objectContaining({
+				redirect: 'manual',
+				headers: {
+					Accept: 'text/html',
+					'User-Agent': 'hub.kaufmann.dev website health checker'
+				}
+			})
+		);
 	});
 
 	it('follows and validates redirects before using the final response', async () => {

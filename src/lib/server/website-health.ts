@@ -87,7 +87,10 @@ export async function checkWebsiteHealth(
 			const response = await waitWithSignal(
 				fetcher(current, {
 					redirect: 'manual',
-					headers: { 'User-Agent': 'hub.kaufmann.dev website health checker' },
+					headers: {
+						Accept: 'text/html',
+						'User-Agent': 'hub.kaufmann.dev website health checker'
+					},
 					signal: controller.signal
 				}),
 				controller.signal
