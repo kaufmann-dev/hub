@@ -30,10 +30,11 @@ pnpm drizzle-kit migrate     # Execute migrations
 
 - **Framework**: SvelteKit with `@sveltejs/adapter-node`
 - **UI**: Tailwind CSS and `shadcn-svelte`
+- **Data tables**: Build them with `@tanstack/svelte-table` v9 and the local `table` component, following the shadcn-svelte data table guide.
 - **Icons**: `@lucide/svelte`
 - **Theme**: `mode-watcher`
 - **Database**: Drizzle with PostgreSQL
-- **Auth**: OIDC (Pocket ID) admin gate via `openid-client` in `src/lib/server/auth/`. Better Auth is installed but not used.
+- **Auth**: OIDC (Pocket ID) admin gate via `openid-client` in `src/lib/server/auth/`.
 - **Forms**: Superforms and Zod
 - **Email**: Resend and `better-svelte-email`
 - **i18n**: Paraglide
@@ -149,7 +150,7 @@ Use modern Svelte replacements over legacy features:
 - Use keyed `{#each}` blocks with stable object identifiers. Never use the index as a key. Avoid destructuring if mutating the item.
 - Use CSS custom properties for parent-to-child styling boundaries.
 - Use `createContext` for typed context instead of unscoped shared module state when state must be per request or per tree.
-- Enable `experimental.async` in `svelte.config.js` to use `await` expressions and `hydratable` (requires Svelte >= 5.36).
+- Enable `compilerOptions.experimental.async` in the `sveltekit()` plugin options in `vite.config.ts` to use `await` expressions and `hydratable` (requires Svelte >= 5.36).
 
 ### Legacy Features to Avoid in New Code
 
@@ -167,10 +168,11 @@ Avoid these legacy Svelte features in new or refactored code:
 
 - **shadcn-svelte**: All components are already pre-installed in `src/lib/components/ui/`. **Never run the CLI to install components, and never delete unused shadcn components during codebase cleanup.**
   - Never import components from a package named `shadcn-svelte`.
-  - Import them only from local `$lib/components/ui/...` paths.
+  - Import them only from local `#lib/components/ui/...` paths (SvelteKit 3 subpath imports, with explicit `.js`/`.svelte` extensions).
   - Use local component source as the final source of truth once a component has been copied into the project.
   - Customize with Tailwind classes using `class` and the local `cn()` helper.
-- Available shadcn-svelte components: `accordion alert alert-dialog aspect-ratio avatar badge breadcrumb button calendar card carousel chart checkbox collapsible combobox command context-menu data-table date-picker dialog drawer dropdown-menu form hover-card input input-otp label menubar navigation-menu pagination popover progress radio-group range-calendar resizable scroll-area select separator sheet sidebar skeleton slider sonner switch table tabs textarea toggle toggle-group tooltip`
+- Available shadcn-svelte components: `accordion alert alert-dialog aspect-ratio avatar badge breadcrumb button calendar card carousel chart checkbox collapsible combobox command context-menu date-picker dialog drawer dropdown-menu form hover-card input input-otp label menubar navigation-menu pagination popover progress radio-group range-calendar resizable scroll-area select separator sheet sidebar skeleton slider sonner switch table tabs textarea toggle toggle-group tooltip`
+- **Data tables**: Build them with `@tanstack/svelte-table` v9 and the local `table` component, following the shadcn-svelte data table guide.
 - **Icons**: Always use `@lucide/svelte` (e.g., `<Search class="size-4" />`).
 - **Theming**: Use `setMode("light" | "dark" | "system")` or `toggleMode` from `mode-watcher` for controls. Add `ModeWatcher` once in the root layout:
 
@@ -205,7 +207,7 @@ For Coolify and Nixpacks:
 - If `pnpm-workspace.yaml` exists in a single-package app, keep a non-empty `packages` list with `.` included.
 - Use `engines.node` and `nixpacks.toml` to pin compatible Node behavior when dependencies require a minimum patch version.
 - Read deployment environment variables from `process.env`. Load `.env` only after checking that the file exists.
-- Validate seed script environment variables before calling Better Auth APIs.
+- Validate seed script environment variables before using them.
 - Document and enforce minimum seeded account password lengths.
 - Let Nixpacks handle the install phase unless a project-specific reason requires otherwise.
 - Prefer explicit deploy or runtime migration and seed steps when Coolify supports them.

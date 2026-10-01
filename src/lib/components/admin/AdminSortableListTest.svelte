@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { DndEvent } from 'svelte-dnd-action';
-	import type { AdminSortItem } from '$lib/admin/reorder';
+	import type { AdminSortItem } from '#lib/admin/reorder.js';
 	import AdminSortableList from './AdminSortableList.svelte';
 	import '../../../routes/layout.css';
 

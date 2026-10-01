@@ -29,7 +29,7 @@ const mock = vi.hoisted(() => {
 	return { db, state };
 });
 
-vi.mock('$lib/server/db', () => ({ db: mock.db }));
+vi.mock('#lib/server/db/index.js', () => ({ db: mock.db }));
 
 function createEvent(body: unknown, isAdmin = true) {
 	const request = new Request('https://example.com/admin/api/reorder', {

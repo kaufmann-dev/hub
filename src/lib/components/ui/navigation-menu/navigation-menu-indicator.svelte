@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { NavigationMenu as NavigationMenuPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -15,5 +15,5 @@
 	class={cn('top-full z-[1] flex h-1.5 items-end justify-center overflow-hidden', className)}
 	{...restProps}
 >
-	<div class="bg-border rounded-tl-sm shadow-md relative top-[60%] h-2 w-2 rotate-45"></div>
+	<div class="relative top-[60%] h-2 w-2 rotate-45 rounded-tl-sm bg-border shadow-md"></div>
 </NavigationMenuPrimitive.Indicator>

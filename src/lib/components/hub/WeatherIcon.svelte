@@ -9,7 +9,7 @@
 		Snowflake,
 		CloudLightning
 	} from '@lucide/svelte';
-	import type { WeatherIconKey } from '$lib/weather-codes';
+	import type { WeatherIconKey } from '#lib/weather-codes.js';
 
 	let { icon, class: className }: { icon: WeatherIconKey; class?: string } = $props();
 

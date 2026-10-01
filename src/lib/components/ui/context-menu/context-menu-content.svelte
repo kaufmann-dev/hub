@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ContextMenu as ContextMenuPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import ContextMenuPortal from './context-menu-portal.svelte';
 	import type { ComponentProps } from 'svelte';
-	import type { WithoutChildrenOrChild } from '$lib/utils.js';
+	import type { WithoutChildrenOrChild } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -20,7 +20,7 @@
 		bind:ref
 		data-slot="context-menu-content"
 		class={cn(
-			'ring-foreground/5 dark:ring-foreground/10 bg-popover text-popover-foreground min-w-36 rounded-2xl p-1 shadow-lg ring-1 z-50 overflow-x-hidden overflow-y-auto outline-none',
+			'z-50 min-w-36 overflow-x-hidden overflow-y-auto rounded-2xl bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-none dark:ring-foreground/10',
 			className
 		)}
 		{...restProps}

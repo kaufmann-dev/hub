@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/private';
+import { OIDC_ISSUER, ORIGIN, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET } from '$app/env/private';
 
 export interface AuthSettings {
 	issuer: URL;
@@ -32,14 +32,14 @@ function absoluteUrl(name: string, value: string): URL {
 }
 
 export function getAuthSettings(): AuthSettings {
-	const issuer = absoluteUrl('OIDC_ISSUER', required('OIDC_ISSUER', env.OIDC_ISSUER));
-	const origin = absoluteUrl('ORIGIN', required('ORIGIN', env.ORIGIN));
+	const issuer = absoluteUrl('OIDC_ISSUER', required('OIDC_ISSUER', OIDC_ISSUER));
+	const origin = absoluteUrl('ORIGIN', required('ORIGIN', ORIGIN));
 	if (origin.pathname !== '/') throw new Error('ORIGIN must not contain a path');
 
 	return {
 		issuer,
-		clientId: required('OIDC_CLIENT_ID', env.OIDC_CLIENT_ID),
-		clientSecret: required('OIDC_CLIENT_SECRET', env.OIDC_CLIENT_SECRET),
+		clientId: required('OIDC_CLIENT_ID', OIDC_CLIENT_ID),
+		clientSecret: required('OIDC_CLIENT_SECRET', OIDC_CLIENT_SECRET),
 		origin,
 		callbackUrl: new URL('/auth/callback', origin),
 		// Post-logout landing preserves the previous behavior: the public homepage.

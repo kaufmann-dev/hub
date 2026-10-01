@@ -3,10 +3,10 @@
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { ArrowLeft } from '@lucide/svelte';
-	import { marketWatchlistSchema } from '$lib/schemas';
-	import * as Form from '$lib/components/ui/form';
-	import { Switch } from '$lib/components/ui/switch';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { marketWatchlistSchema } from '#lib/schemas.js';
+	import * as Form from '#lib/components/ui/form/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -18,11 +18,11 @@
 
 <svelte:head><title>Edit market · Admin</title></svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="min-h-screen bg-background text-foreground">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-2 flex items-center gap-3">
 			<a
-				href={resolve('/admin?tab=markets')}
+				href={resolve('admin?tab=markets')}
 				class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 				aria-label="Back"
 			>
@@ -30,7 +30,7 @@
 			</a>
 			<h1 class="text-lg font-semibold">{data.market.market.title}</h1>
 		</div>
-		<p class="text-muted-foreground mb-6 pl-12 text-sm">
+		<p class="mb-6 pl-12 text-sm text-muted-foreground">
 			{data.market.market.city}, {data.market.market.country}
 		</p>
 
@@ -49,7 +49,8 @@
 
 			<div class="flex gap-2">
 				<Form.Button>Save</Form.Button>
-				<a href={resolve('/admin?tab=markets')} class={buttonVariants({ variant: 'outline' })}
+
+				<a href={resolve('admin?tab=markets')} class={buttonVariants({ variant: 'outline' })}
 					>Cancel</a
 				>
 			</div>

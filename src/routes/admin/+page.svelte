@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
@@ -25,11 +25,11 @@
 		toSortItems,
 		type AdminSortItem,
 		type SortZones
-	} from '$lib/admin/reorder';
-	import AdminSortableList from '$lib/components/admin/AdminSortableList.svelte';
-	import { Button, buttonVariants } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
-	import * as Tabs from '$lib/components/ui/tabs';
+	} from '#lib/admin/reorder.js';
+	import AdminSortableList from '#lib/components/admin/AdminSortableList.svelte';
+	import { Button, buttonVariants } from '#lib/components/ui/button/index.js';
+	import { Badge } from '#lib/components/ui/badge/index.js';
+	import * as Tabs from '#lib/components/ui/tabs/index.js';
 	import type { PageData } from './$types';
 
 	type AdminTab = 'websites' | 'projects' | 'cities' | 'markets';
@@ -112,7 +112,12 @@
 	let activeProjects = $derived(displayedProjects.filter((project) => !project.hidden));
 	let inactiveProjects = $derived(displayedProjects.filter((project) => project.hidden));
 	let projectGroups = $derived([
-		{ id: 'active' as const, title: 'Active projects', emptyLabel: 'Drop active projects here' },
+		{
+			id: 'active' as const,
+			title: 'Active projects',
+			emptyLabel: 'Drop active projects here'
+		},
+
 		{
 			id: 'inactive' as const,
 			title: 'Inactive projects',
@@ -156,7 +161,7 @@
 
 	function setActiveTab(tab: string) {
 		const nextTab = normalizeTab(tab);
-		replaceState(resolve(`/admin?tab=${nextTab}`), page.state);
+		goto(resolve(`admin?tab=${nextTab}`), { shallow: true, replace: true, state: page.state });
 	}
 
 	function orderedRows<T extends Row>(rows: T[], order: number[] | null): T[] {
@@ -259,6 +264,7 @@
 		const groupChanged =
 			(type === 'websites' && !sameRecord(websiteKindById(), nextWebsiteKinds)) ||
 			(type === 'projects' && !sameRecord(projectHiddenById(), nextProjectHidden));
+
 		if (!orderChanged && !groupChanged) {
 			clearDraft(type);
 			return;
@@ -401,7 +407,7 @@
 
 <svelte:head><title>Admin · Hub</title></svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="min-h-screen bg-background text-foreground">
 	<header class="border-b">
 		<div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
 			<div class="flex items-center gap-3">
@@ -470,16 +476,17 @@
 							{refreshingFavicons ? 'Refreshing…' : 'Refresh icons'}
 						</Button>
 					</form>
-					<a href={resolve('/admin/websites')} class={buttonVariants({ size: 'sm' })}>
-						<Plus class="size-4" /> Add website
-					</a>
+
+					<a href={resolve('admin/websites')} class={buttonVariants({ size: 'sm' })}
+						><Plus class="size-4" />Add website</a
+					>
 				</div>
 				<div class="space-y-5">
 					{#each websiteGroups as group (group.id)}
 						<section class="space-y-3" aria-labelledby={`websites-${group.id}`}>
 							<h2
 								id={`websites-${group.id}`}
-								class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
+								class="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
 							>
 								{group.title}
 							</h2>
@@ -497,7 +504,7 @@
 									{#if site}
 										<div class="min-w-0 flex-1">
 											<div class="font-medium">{site.title}</div>
-											<div class="text-muted-foreground truncate text-sm">{site.url}</div>
+											<div class="truncate text-sm text-muted-foreground">{site.url}</div>
 										</div>
 										<form method="POST" action="?/toggleWebsiteHidden" use:enhance>
 											<input type="hidden" name="id" value={site.id} />
@@ -512,7 +519,7 @@
 											</Button>
 										</form>
 										<a
-											href={resolve(`/admin/websites/${site.id}`)}
+											href={resolve(`admin/websites/${site.id}`)}
 											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 											aria-label="Edit"
 										>
@@ -521,7 +528,7 @@
 										<form method="POST" action="?/deleteWebsite" use:enhance>
 											<input type="hidden" name="id" value={site.id} />
 											<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
-												<Trash2 class="text-destructive size-4" />
+												<Trash2 class="size-4 text-destructive" />
 											</Button>
 										</form>
 									{/if}
@@ -564,9 +571,8 @@
 								try {
 									if (result.type === 'success') {
 										const synced = (result.data?.synced as number | undefined) ?? 0;
-										toast.success(`Synced ${synced} projects.`, {
-											id: toastIds.projectSync
-										});
+
+										toast.success(`Synced ${synced} projects.`, { id: toastIds.projectSync });
 									} else {
 										toast.error('Sync failed. Check server logs.', {
 											id: toastIds.projectSync
@@ -590,7 +596,7 @@
 						<section class="space-y-3" aria-labelledby={`projects-${group.id}`}>
 							<h2
 								id={`projects-${group.id}`}
-								class="text-muted-foreground text-sm font-semibold tracking-wide uppercase"
+								class="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
 							>
 								{group.title}
 							</h2>
@@ -609,13 +615,13 @@
 										<div class="min-w-0 flex-1">
 											<div class="flex items-center gap-2 font-medium">
 												{project.name}
-												<span class="text-muted-foreground inline-flex items-center gap-1 text-xs">
+												<span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
 													<Star class="size-3" />{project.stars}
 												</span>
 												{#if project.language}<Badge variant="secondary">{project.language}</Badge
 													>{/if}
 											</div>
-											<div class="text-muted-foreground truncate text-sm">
+											<div class="truncate text-sm text-muted-foreground">
 												{project.descriptionOverride ?? project.description ?? '—'}
 											</div>
 										</div>
@@ -643,7 +649,7 @@
 											</Button>
 										</form>
 										<a
-											href={resolve(`/admin/projects/${project.id}`)}
+											href={resolve(`admin/projects/${project.id}`)}
 											class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 											aria-label="Edit"
 										>
@@ -660,9 +666,9 @@
 			<!-- Cities -->
 			<Tabs.Content value="cities" class="space-y-3">
 				<div class="flex justify-end">
-					<a href={resolve('/admin/cities')} class={buttonVariants({ size: 'sm' })}>
-						<Plus class="size-4" /> Add city
-					</a>
+					<a href={resolve('admin/cities')} class={buttonVariants({ size: 'sm' })}
+						><Plus class="size-4" />Add city</a
+					>
 				</div>
 				<AdminSortableList
 					items={cityItems}
@@ -678,7 +684,7 @@
 						{#if c}
 							<div class="min-w-0 flex-1">
 								<div class="font-medium">{c.name}</div>
-								<div class="text-muted-foreground truncate text-sm">
+								<div class="truncate text-sm text-muted-foreground">
 									{c.timezone} · {c.latitude}, {c.longitude}
 								</div>
 							</div>
@@ -695,7 +701,7 @@
 								</Button>
 							</form>
 							<a
-								href={resolve(`/admin/cities/${c.id}`)}
+								href={resolve(`admin/cities/${c.id}`)}
 								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 								aria-label="Edit"
 							>
@@ -704,7 +710,7 @@
 							<form method="POST" action="?/deleteCity" use:enhance>
 								<input type="hidden" name="id" value={c.id} />
 								<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
-									<Trash2 class="text-destructive size-4" />
+									<Trash2 class="size-4 text-destructive" />
 								</Button>
 							</form>
 						{/if}
@@ -751,9 +757,10 @@
 							{importingMarkets ? 'Importing…' : 'Import all canonical markets'}
 						</Button>
 					</form>
-					<a href={resolve('/admin/markets')} class={buttonVariants({ size: 'sm' })}>
-						<Plus class="size-4" /> Add market
-					</a>
+
+					<a href={resolve('admin/markets')} class={buttonVariants({ size: 'sm' })}
+						><Plus class="size-4" />Add market</a
+					>
 				</div>
 				<AdminSortableList
 					items={marketItems}
@@ -769,7 +776,7 @@
 						{#if market}
 							<div class="min-w-0 flex-1">
 								<div class="font-medium">{market.market.title}</div>
-								<div class="text-muted-foreground truncate text-sm">
+								<div class="truncate text-sm text-muted-foreground">
 									{market.market.city}, {market.market.country}
 								</div>
 							</div>
@@ -786,7 +793,7 @@
 								</Button>
 							</form>
 							<a
-								href={resolve(`/admin/markets/${market.id}`)}
+								href={resolve(`admin/markets/${market.id}`)}
 								class={buttonVariants({ variant: 'ghost', size: 'icon' })}
 								aria-label="Edit"
 							>
@@ -795,7 +802,7 @@
 							<form method="POST" action="?/deleteMarket" use:enhance>
 								<input type="hidden" name="id" value={market.id} />
 								<Button type="submit" variant="ghost" size="icon" aria-label="Delete">
-									<Trash2 class="text-destructive size-4" />
+									<Trash2 class="size-4 text-destructive" />
 								</Button>
 							</form>
 						{/if}

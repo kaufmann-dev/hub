@@ -2,11 +2,11 @@
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { ArrowLeft, Star } from '@lucide/svelte';
-	import { projectSchema } from '$lib/schemas';
-	import * as Form from '$lib/components/ui/form';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import { Switch } from '$lib/components/ui/switch';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { projectSchema } from '#lib/schemas.js';
+	import * as Form from '#lib/components/ui/form/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import { Switch } from '#lib/components/ui/switch/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -18,7 +18,7 @@
 
 <svelte:head><title>Edit project · Admin</title></svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="min-h-screen bg-background text-foreground">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-2 flex items-center gap-3">
 			<a
@@ -30,7 +30,7 @@
 			</a>
 			<h1 class="text-lg font-semibold">{data.project.name}</h1>
 		</div>
-		<p class="text-muted-foreground mb-6 flex items-center gap-2 pl-12 text-sm">
+		<p class="mb-6 flex items-center gap-2 pl-12 text-sm text-muted-foreground">
 			<a href={data.project.url} target="_blank" rel="noopener noreferrer" class="hover:underline">
 				{data.project.fullName}
 			</a>

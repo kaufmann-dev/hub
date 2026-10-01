@@ -2,15 +2,15 @@
 	import { resolve } from '$app/paths';
 	import { Search, Star, ExternalLink, Settings, Sun, Moon, Landmark, Info } from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
-	import { Input } from '$lib/components/ui/input';
-	import { Button } from '$lib/components/ui/button';
-	import * as Popover from '$lib/components/ui/popover';
-	import { clock } from '$lib/clock.svelte';
-	import { faviconUrls } from '$lib/favicon';
-	import WeatherIcon from '$lib/components/hub/WeatherIcon.svelte';
-	import GithubMark from '$lib/components/hub/GithubMark.svelte';
-	import WebsiteIcon from '$lib/components/hub/WebsiteIcon.svelte';
-	import type { WebsiteHealthRefreshResponse, WebsiteHealthSnapshot } from '$lib/website-health';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import { clock } from '#lib/clock.svelte.js';
+	import { faviconUrls } from '#lib/favicon.js';
+	import WeatherIcon from '#lib/components/hub/WeatherIcon.svelte';
+	import GithubMark from '#lib/components/hub/GithubMark.svelte';
+	import WebsiteIcon from '#lib/components/hub/WebsiteIcon.svelte';
+	import type { WebsiteHealthRefreshResponse, WebsiteHealthSnapshot } from '#lib/website-health.js';
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageData } from './$types';
 
@@ -26,7 +26,7 @@
 		const controller = new AbortController();
 		void (async () => {
 			try {
-				const response = await fetch(resolve('/api/website-health/refresh'), {
+				const response = await fetch(resolve('api/website-health/refresh'), {
 					method: 'POST',
 					headers: { accept: 'application/json' },
 					signal: controller.signal
@@ -83,7 +83,7 @@
 
 	async function refreshWeather() {
 		try {
-			const res = await fetch(resolve('/api/weather'));
+			const res = await fetch(resolve('api/weather'));
 			if (!res.ok) return;
 			const body = (await res.json()) as { weatherByCity: PageData['weatherByCity'] };
 			refreshedWeather = body.weatherByCity;
@@ -202,7 +202,7 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
-<svelte:document onvisibilitychange={refreshWeatherWhenVisible} />
+<svelte:document onvisibilitychange={refreshWeatherWhenVisible}></svelte:document>
 
 <svelte:head>
 	<title>Hub</title>
@@ -210,16 +210,16 @@
 </svelte:head>
 
 <div
-	class="bg-background text-foreground flex min-h-screen flex-col"
+	class="flex min-h-screen flex-col bg-background text-foreground"
 	{@attach refreshWebsiteHealth}
 	{@attach refreshWeatherWhileMounted}
 >
 	<!-- Filter bar (sticky, top) -->
-	<header class="bg-background/80 sticky top-0 z-20 border-b backdrop-blur">
+	<header class="sticky top-0 z-20 border-b bg-background/80 backdrop-blur">
 		<div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
 			<div class="relative flex-1">
 				<Search
-					class="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<Input
 					bind:ref={filterInput}
@@ -233,7 +233,8 @@
 				<Sun class="size-4 dark:hidden" />
 				<Moon class="hidden size-4 dark:block" />
 			</Button>
-			<Button variant="outline" size="sm" href={resolve('/admin')}>
+
+			<Button variant="outline" size="sm" href={resolve('admin')}>
 				<Settings class="size-4" />
 				<span class="hidden sm:inline">Admin</span>
 			</Button>
@@ -246,26 +247,27 @@
 			<section aria-labelledby="cities">
 				<h2
 					id="cities"
-					class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+					class="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase"
 				>
 					Cities
 				</h2>
+
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{#each data.cities as city (city.id)}
 						{@const weather = weatherByCity[city.id]}
 						<div
-							class="bg-card text-card-foreground flex items-center justify-between rounded-xl border p-5"
+							class="flex items-center justify-between rounded-xl border bg-card p-5 text-card-foreground"
 						>
 							<div>
-								<div class="text-muted-foreground text-sm font-medium">{city.name}</div>
+								<div class="text-sm font-medium text-muted-foreground">{city.name}</div>
 								<div class="font-mono text-3xl tabular-nums">{timeIn(city.timezone)}</div>
-								<div class="text-muted-foreground text-xs">{dateIn(city.timezone)}</div>
+								<div class="text-xs text-muted-foreground">{dateIn(city.timezone)}</div>
 							</div>
 							{#if weather}
 								<div class="flex flex-col items-center">
-									<WeatherIcon icon={weather.icon} class="text-muted-foreground size-7" />
+									<WeatherIcon icon={weather.icon} class="size-7 text-muted-foreground" />
 									<div class="mt-1 text-xl font-semibold">{weather.temperature}{weather.unit}</div>
-									<div class="text-muted-foreground text-xs">{weather.label}</div>
+									<div class="text-xs text-muted-foreground">{weather.label}</div>
 								</div>
 							{/if}
 						</div>
@@ -279,21 +281,22 @@
 			<section aria-labelledby="markets">
 				<h2
 					id="markets"
-					class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+					class="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase"
 				>
 					Markets
 				</h2>
+
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each filteredMarkets as market (market.id)}
 						{@const status = liveStatus(market, now)}
-						<div class="bg-card text-card-foreground rounded-xl border p-4">
+						<div class="rounded-xl border bg-card p-4 text-card-foreground">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
 									<div class="flex items-center gap-2 font-medium">
-										<Landmark class="text-muted-foreground size-4 shrink-0" />
+										<Landmark class="size-4 shrink-0 text-muted-foreground" />
 										<span class="truncate">{market.title}</span>
 									</div>
-									<div class="text-muted-foreground mt-1 truncate text-sm">
+									<div class="mt-1 truncate text-sm text-muted-foreground">
 										{market.city}, {market.country}
 									</div>
 								</div>
@@ -303,7 +306,7 @@
 											'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs font-medium',
 											status === 'open'
 												? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-												: 'text-muted-foreground bg-muted/60'
+												: 'bg-muted/60 text-muted-foreground'
 										]}
 									>
 										<span
@@ -314,17 +317,17 @@
 										></span>
 										{marketStatusLabel(status)}
 									</div>
-									<div class="text-muted-foreground text-xs">{liveCountdown(market, now)}</div>
+									<div class="text-xs text-muted-foreground">{liveCountdown(market, now)}</div>
 								</div>
 							</div>
 							<div
-								class="text-muted-foreground mt-3 flex items-center justify-between gap-3 text-xs"
+								class="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground"
 							>
 								<span class="font-mono tabular-nums">{market.hoursLabel}</span>
 								{#if market.supplementalDetail}
 									<Popover.Root>
 										<Popover.Trigger
-											class="hover:text-foreground -m-2 shrink-0 rounded-full p-2"
+											class="-m-2 shrink-0 rounded-full p-2 hover:text-foreground"
 											aria-label={`Schedule detail for ${market.title}`}
 										>
 											<Info class="size-3.5" />
@@ -347,15 +350,16 @@
 				<section aria-labelledby={`websites-${group.id}`}>
 					<h2
 						id={`websites-${group.id}`}
-						class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase"
+						class="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase"
 					>
 						{group.title}
 					</h2>
+
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
 							{@const favicon = faviconUrls(site.id, site.faviconCheckedAt)}
 							<div
-								class="group bg-card text-card-foreground hover:border-primary/50 relative flex flex-col rounded-xl border p-4"
+								class="group relative flex flex-col rounded-xl border bg-card p-4 text-card-foreground hover:border-primary/50"
 							>
 								<a
 									href={site.url}
@@ -369,7 +373,7 @@
 											<span class="flex min-w-0 items-center gap-1.5">
 												<span class="truncate">{site.title}</span>
 												<ExternalLink
-													class="text-muted-foreground size-3.5 shrink-0 opacity-0 group-hover:opacity-100"
+													class="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100"
 												/>
 											</span>
 											{#if site.kind === 'personal'}
@@ -392,7 +396,7 @@
 											{/if}
 										</span>
 										{#if site.description}
-											<span class="text-muted-foreground line-clamp-2 text-sm"
+											<span class="line-clamp-2 text-sm text-muted-foreground"
 												>{site.description}</span
 											>
 										{/if}
@@ -405,20 +409,20 @@
 			{/each}
 		{:else}
 			<section>
-				<p class="text-muted-foreground text-sm">No websites match "{q}".</p>
+				<p class="text-sm text-muted-foreground">No websites match "{q}".</p>
 			</section>
 		{/if}
 
 		<!-- GitHub projects -->
 		<section>
-			<h2 class="text-muted-foreground mb-3 text-sm font-semibold tracking-wide uppercase">
+			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
 				GitHub projects
 			</h2>
 			{#if filteredProjects.length}
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each filteredProjects as project (project.id)}
 						<div
-							class="group bg-card text-card-foreground hover:border-primary/50 flex flex-col rounded-xl border p-4"
+							class="group flex flex-col rounded-xl border bg-card p-4 text-card-foreground hover:border-primary/50"
 						>
 							<a
 								href={project.url}
@@ -430,11 +434,11 @@
 								<span class="truncate">{project.name}</span>
 							</a>
 							{#if project.descriptionOverride ?? project.description}
-								<p class="text-muted-foreground mt-1 line-clamp-2 flex-1 text-sm">
+								<p class="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
 									{project.descriptionOverride ?? project.description}
 								</p>
 							{/if}
-							<div class="text-muted-foreground mt-3 flex items-center gap-3 text-xs">
+							<div class="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
 								{#if project.language}
 									<span>{project.language}</span>
 								{/if}
@@ -447,7 +451,7 @@
 										href={project.homepage}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="hover:text-foreground ml-auto inline-flex items-center gap-1"
+										class="ml-auto inline-flex items-center gap-1 hover:text-foreground"
 									>
 										<ExternalLink class="size-3" /> Site
 									</a>
@@ -457,11 +461,12 @@
 					{/each}
 				</div>
 			{:else if data.projects.length}
-				<p class="text-muted-foreground text-sm">No projects match "{q}".</p>
+				<p class="text-sm text-muted-foreground">No projects match "{q}".</p>
 			{:else}
-				<p class="text-muted-foreground text-sm">
-					No projects synced yet. Open <a class="underline" href={resolve('/admin')}>Admin</a> and run
-					a sync.
+				<p class="text-sm text-muted-foreground">
+					No projects synced yet. Open
+					<a class="underline" href={resolve('admin')}>Admin</a>
+					and run a sync.
 				</p>
 			{/if}
 		</section>

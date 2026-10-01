@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
-	import { Toaster } from '$lib/components/ui/sonner';
+	import { Toaster } from '#lib/components/ui/sonner/index.js';
 	import '../../../routes/layout.css';
 
 	const feedbackId = 'admin-feedback-test';

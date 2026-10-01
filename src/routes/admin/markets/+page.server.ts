@@ -2,10 +2,10 @@ import { fail, redirect } from '@sveltejs/kit';
 import { desc } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { db } from '$lib/server/db';
-import { marketWatchlist } from '$lib/server/db/schema';
-import { marketCreateSchema } from '$lib/schemas';
-import { getSupportedMarkets, unconfiguredSupportedMarkets } from '$lib/server/markets';
+import { db } from '#lib/server/db/index.js';
+import { marketWatchlist } from '#lib/server/db/schema.js';
+import { marketCreateSchema } from '#lib/schemas.js';
+import { getSupportedMarkets, unconfiguredSupportedMarkets } from '#lib/server/markets.js';
 import type { Actions, PageServerLoad } from './$types';
 
 async function nextSortOrder(): Promise<number> {

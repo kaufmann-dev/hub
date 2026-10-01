@@ -1,8 +1,8 @@
 <script lang="ts">
 	import type { WithoutChildren } from 'bits-ui';
 	import { getEmblaContext } from './context.js';
-	import { cn } from '$lib/utils.js';
-	import { Button, type Props } from '$lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
+	import { Button, type Props } from '#lib/components/ui/button/index.js';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 
 	let {
@@ -23,7 +23,7 @@
 	aria-disabled={!emblaCtx.canScrollPrev}
 	disabled={!emblaCtx.canScrollPrev}
 	class={cn(
-		'rounded-2xl absolute touch-manipulation',
+		'absolute touch-manipulation rounded-2xl',
 		emblaCtx.orientation === 'horizontal'
 			? '-start-12 top-1/2 -translate-y-1/2'
 			: 'start-1/2 -top-12 -translate-x-1/2 rotate-90',

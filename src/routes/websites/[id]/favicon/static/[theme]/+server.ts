@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { websiteFavicon } from '$lib/server/db/schema';
-import { staticizeSvgTheme } from '$lib/server/favicon-svg';
+import { db } from '#lib/server/db/index.js';
+import { websiteFavicon } from '#lib/server/db/schema.js';
+import { staticizeSvgTheme } from '#lib/server/favicon-svg.js';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {

@@ -2,12 +2,12 @@
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { ArrowLeft } from '@lucide/svelte';
-	import { websiteSchema } from '$lib/schemas';
-	import * as Form from '$lib/components/ui/form';
-	import { Input } from '$lib/components/ui/input';
-	import { Textarea } from '$lib/components/ui/textarea';
-	import * as Select from '$lib/components/ui/select';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { websiteSchema } from '#lib/schemas.js';
+	import * as Form from '#lib/components/ui/form/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { Textarea } from '#lib/components/ui/textarea/index.js';
+	import * as Select from '#lib/components/ui/select/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -20,7 +20,7 @@
 
 <svelte:head><title>{data.isEdit ? 'Edit website' : 'Add website'} · Admin</title></svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="min-h-screen bg-background text-foreground">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-6 flex items-center gap-3">
 			<a

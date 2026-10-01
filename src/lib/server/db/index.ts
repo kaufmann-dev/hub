@@ -1,13 +1,13 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
-import { env } from '$env/dynamic/private';
+import { DATABASE_URL } from '$app/env/private';
 
 type DB = ReturnType<typeof create>;
 
 function create() {
-	if (!env.DATABASE_URL) throw new Error('DATABASE_URL is not set');
-	return drizzle(postgres(env.DATABASE_URL), { schema });
+	if (!DATABASE_URL) throw new Error('DATABASE_URL is not set');
+	return drizzle(postgres(DATABASE_URL), { schema });
 }
 
 let instance: DB | undefined;

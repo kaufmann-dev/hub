@@ -20,7 +20,14 @@ const mock = vi.hoisted(() => {
 	return { db, env, upserts };
 });
 
-vi.mock('$env/dynamic/private', () => ({ env: mock.env }));
+vi.mock('$app/env/private', () => ({
+	get GITHUB_USERNAME() {
+		return mock.env.GITHUB_USERNAME;
+	},
+	get GITHUB_TOKEN() {
+		return mock.env.GITHUB_TOKEN;
+	}
+}));
 vi.mock('./db', () => ({ db: mock.db }));
 
 const { githubReposUrl, syncGithubProjects } = await import('./github');

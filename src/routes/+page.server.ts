@@ -1,15 +1,21 @@
 import { asc, desc, eq, getTableColumns } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { website, websiteFavicon, websiteHealth, githubProject, city } from '$lib/server/db/schema';
-import { getWeather } from '$lib/server/weather';
-import { syncIfStale } from '$lib/server/github';
-import { refreshStaleFavicons } from '$lib/server/favicon';
-import { getWatchedMarketStatuses } from '$lib/server/markets';
+import { db } from '#lib/server/db/index.js';
+import {
+	website,
+	websiteFavicon,
+	websiteHealth,
+	githubProject,
+	city
+} from '#lib/server/db/schema.js';
+import { getWeather } from '#lib/server/weather.js';
+import { syncIfStale } from '#lib/server/github.js';
+import { refreshStaleFavicons } from '#lib/server/favicon.js';
+import { getWatchedMarketStatuses } from '#lib/server/markets.js';
 import {
 	healthSnapshot,
 	refreshStaleWebsiteHealth,
 	WEBSITE_HEALTH_MAX_AGE_MS
-} from '$lib/server/website-health';
+} from '#lib/server/website-health.js';
 import type { PageServerLoad } from './$types';
 
 const PROJECTS_MAX_AGE_MS = 6 * 60 * 60 * 1000; // re-sync if older than 6h

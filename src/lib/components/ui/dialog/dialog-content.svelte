@@ -3,9 +3,9 @@
 	import DialogPortal from './dialog-portal.svelte';
 	import type { Snippet } from 'svelte';
 	import * as Dialog from './index.js';
-	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import type { ComponentProps } from 'svelte';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { Button } from '#lib/components/ui/button/index.js';
 	import XIcon from '@lucide/svelte/icons/x';
 
 	let {
@@ -28,7 +28,7 @@
 		bind:ref
 		data-slot="dialog-content"
 		class={cn(
-			'bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 grid max-w-[calc(100%-2rem)] gap-6 rounded-[min(var(--radius-4xl),24px)] p-6 text-sm shadow-xl ring-1 sm:max-w-md fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2 outline-none',
+			'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-[min(var(--radius-4xl),24px)] bg-popover p-6 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none sm:max-w-md dark:ring-foreground/10',
 			className
 		)}
 		{...restProps}
@@ -39,7 +39,7 @@
 				{#snippet child({ props })}
 					<Button
 						variant="ghost"
-						class="bg-secondary absolute top-4 right-4"
+						class="absolute top-4 right-4 bg-secondary"
 						size="icon-sm"
 						{...props}
 					>

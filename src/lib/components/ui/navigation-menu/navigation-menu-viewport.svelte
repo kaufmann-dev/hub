@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { NavigationMenu as NavigationMenuPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -14,7 +14,7 @@
 		bind:ref
 		data-slot="navigation-menu-viewport"
 		class={cn(
-			'bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 rounded-2xl shadow-lg ring-1 origin-top-center relative mt-1.5 h-[calc(var(--bits-navigation-menu-viewport-height)+1rem)] w-full overflow-hidden md:w-[calc(var(--bits-navigation-menu-viewport-width)+1rem)]',
+			'origin-top-center relative mt-1.5 h-[calc(var(--bits-navigation-menu-viewport-height)+1rem)] w-full overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-lg ring-1 ring-foreground/5 md:w-[calc(var(--bits-navigation-menu-viewport-width)+1rem)] dark:ring-foreground/10',
 			className
 		)}
 		{...restProps}

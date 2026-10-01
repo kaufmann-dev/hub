@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import DropdownMenuPortal from './dropdown-menu-portal.svelte';
 	import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui';
 	import type { ComponentProps } from 'svelte';
@@ -23,7 +23,7 @@
 		{sideOffset}
 		{align}
 		class={cn(
-			'ring-foreground/5 dark:ring-foreground/10 bg-popover text-popover-foreground min-w-32 rounded-2xl p-1 shadow-lg ring-1 z-50 w-(--bits-dropdown-menu-anchor-width) overflow-x-hidden overflow-y-auto outline-none data-closed:overflow-hidden',
+			'z-50 w-(--bits-dropdown-menu-anchor-width) min-w-32 overflow-x-hidden overflow-y-auto rounded-2xl bg-popover p-1 text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-none dark:ring-foreground/10 data-closed:overflow-hidden',
 			className
 		)}
 		{...restProps}
