@@ -1,7 +1,10 @@
 # Node version comes from package.json `engines.node`.
 
+[phases.install]
+cmds = ["npx --yes pnpm@11.18.0 install --frozen-lockfile"]
+
 [phases.build]
-cmds = ["pnpm build"]
+cmds = ["npx --yes pnpm@11.18.0 run build"]
 
 # Apply Drizzle migrations, then start the adapter-node server (binds to $PORT).
 [start]

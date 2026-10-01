@@ -116,8 +116,8 @@ Set `ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and optiona
 
 ## Coolify Deployment
 
-Deployed via Coolify's **Nixpacks** build pack. Build command, start command, and the Node
-version live in `nixpacks.toml` and `package.json`; the settings below must be set in the
+Deployed via Coolify's **Nixpacks** build pack. Install, build, and start commands (run with the
+pinned pnpm 11.18.0) and the Node version live in `nixpacks.toml` and `package.json`; the settings below must be set in the
 Coolify UI.
 
 | Setting        | Value    |
