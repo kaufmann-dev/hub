@@ -11,3 +11,6 @@ bun.lockb
 
 # Vendored agent skill docs (not project source)
 /.agents/
+
+# Generated Paraglide project files
+project.inlang/
