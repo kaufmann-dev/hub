@@ -2,10 +2,10 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { desc, eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { db } from '$lib/server/db';
-import { website, websiteHealth } from '$lib/server/db/schema';
-import { websiteSchema } from '$lib/schemas';
-import { refreshWebsiteFavicon } from '$lib/server/favicon';
+import { db } from '#lib/server/db/index.js';
+import { website, websiteHealth } from '#lib/server/db/schema.js';
+import { websiteSchema } from '#lib/schemas.js';
+import { refreshWebsiteFavicon } from '#lib/server/favicon.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function parseId(raw: string | undefined): number | null {

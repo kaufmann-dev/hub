@@ -3,7 +3,7 @@ import type {
 	WebsiteHealthFailureKind,
 	WebsiteHealthRefreshResponse,
 	WebsiteHealthSnapshot
-} from '$lib/website-health';
+} from '#lib/website-health.js';
 import { db } from './db';
 import { website, websiteHealth } from './db/schema';
 import { assertPublicUrl } from './public-url';

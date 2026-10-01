@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 	import { tv } from 'tailwind-variants';
 
 	export const navigationMenuTriggerStyle = tv({
@@ -26,7 +26,7 @@
 >
 	{@render children?.()}
 	<ChevronDownIcon
-		class="relative top-px ml-1 size-3 group-data-open/navigation-menu-trigger:rotate-180 group-data-popup-open/navigation-menu-trigger:rotate-180"
+		class="relative top-px ml-1 size-3 group-data-popup-open/navigation-menu-trigger:rotate-180 group-data-open/navigation-menu-trigger:rotate-180"
 		aria-hidden="true"
 	/>
 </NavigationMenuPrimitive.Trigger>

@@ -1,6 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 import Holidays from 'date-holidays';
-import { db } from '$lib/server/db';
+import { db } from '#lib/server/db/index.js';
 import {
 	marketWatchlist,
 	supportedMarket,
@@ -8,7 +8,7 @@ import {
 	supportedMarketSession,
 	type MarketWatchlist,
 	type SupportedMarket
-} from '$lib/server/db/schema';
+} from '#lib/server/db/schema.js';
 
 type SessionWindow = {
 	startTime: string;

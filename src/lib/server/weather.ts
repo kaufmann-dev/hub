@@ -1,5 +1,5 @@
 import type { City } from './db/schema';
-import { weatherCodeToInfo, type WeatherIconKey } from '$lib/weather-codes';
+import { weatherCodeToInfo, type WeatherIconKey } from '#lib/weather-codes.js';
 
 export interface CityWeather {
 	temperature: number;

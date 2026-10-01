@@ -2,12 +2,12 @@
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { ArrowLeft, ChevronsUpDown } from '@lucide/svelte';
-	import { citySchema } from '$lib/schemas';
-	import * as Form from '$lib/components/ui/form';
-	import * as Command from '$lib/components/ui/command';
-	import * as Popover from '$lib/components/ui/popover';
-	import { Input } from '$lib/components/ui/input';
-	import { buttonVariants } from '$lib/components/ui/button';
+	import { citySchema } from '#lib/schemas.js';
+	import * as Form from '#lib/components/ui/form/index.js';
+	import * as Command from '#lib/components/ui/command/index.js';
+	import * as Popover from '#lib/components/ui/popover/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
+	import { buttonVariants } from '#lib/components/ui/button/index.js';
 	import type { PageData } from './$types';
 
 	type CitySuggestion = {
@@ -140,7 +140,7 @@
 
 <svelte:head><title>{data.isEdit ? 'Edit city' : 'Add city'} · Admin</title></svelte:head>
 
-<div class="bg-background text-foreground min-h-screen">
+<div class="min-h-screen bg-background text-foreground">
 	<main class="mx-auto max-w-xl px-4 py-8">
 		<div class="mb-6 flex items-center gap-3">
 			<a
@@ -173,7 +173,7 @@
 								<span class={['min-w-0 truncate', !hasCityDetails && 'text-muted-foreground']}>
 									{triggerLabel}
 								</span>
-								<ChevronsUpDown class="text-muted-foreground size-4 shrink-0" />
+								<ChevronsUpDown class="size-4 shrink-0 text-muted-foreground" />
 							</Popover.Trigger>
 							<Popover.Content align="start" class="w-[min(28rem,calc(100vw-2rem))] p-2">
 								<div class="space-y-2">
@@ -187,11 +187,11 @@
 									<Command.Root shouldFilter={false} class="rounded-2xl p-0">
 										<Command.List>
 											{#if searchStatus === 'loading'}
-												<Command.Loading class="text-muted-foreground px-2 py-3 text-sm">
+												<Command.Loading class="px-2 py-3 text-sm text-muted-foreground">
 													Searching cities...
 												</Command.Loading>
 											{:else if searchStatus === 'error'}
-												<div class="text-destructive px-2 py-3 text-sm">{searchError}</div>
+												<div class="px-2 py-3 text-sm text-destructive">{searchError}</div>
 											{:else if searchQuery.trim().length < 2}
 												<Command.Empty>Type at least 2 characters.</Command.Empty>
 											{:else if suggestions.length === 0}
@@ -205,7 +205,7 @@
 														>
 															<div class="min-w-0">
 																<div class="truncate font-medium">{suggestion.label}</div>
-																<div class="text-muted-foreground truncate text-xs">
+																<div class="truncate text-xs text-muted-foreground">
 																	{suggestion.timezone}
 																</div>
 															</div>

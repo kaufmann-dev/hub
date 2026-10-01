@@ -8,7 +8,7 @@ import {
 	type MarketStatus,
 	type WatchedMarketStatus
 } from './markets';
-import type { MarketWatchlist, SupportedMarket } from '$lib/server/db/schema';
+import type { MarketWatchlist, SupportedMarket } from '#lib/server/db/schema.js';
 
 type SessionWindow = {
 	startTime: string;

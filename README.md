@@ -52,15 +52,15 @@ cookie. Admission of users is managed entirely in Pocket ID.
 
 Copy `.env.example` to `.env` and fill it in:
 
-| Variable             | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`       | PostgreSQL connection string                                          |
-| `ORIGIN`             | Public origin (required by adapter-node for form POST/CSRF in prod)   |
-| `OIDC_ISSUER`        | OIDC issuer URL for discovery                                         |
-| `OIDC_CLIENT_ID`     | Confidential OIDC client ID                                           |
-| `OIDC_CLIENT_SECRET` | Confidential OIDC client secret                                       |
-| `GITHUB_USERNAME`    | GitHub account whose public repos are synced (default `kaufmann-dev`) |
-| `GITHUB_TOKEN`       | Optional; enables private owned repos when the token has access       |
+| Variable             | Purpose                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`       | PostgreSQL connection string                                                            |
+| `ORIGIN`             | Public origin; also needed at build time as SvelteKit's `paths.origin` (form POST/CSRF) |
+| `OIDC_ISSUER`        | OIDC issuer URL for discovery                                                           |
+| `OIDC_CLIENT_ID`     | Confidential OIDC client ID                                                             |
+| `OIDC_CLIENT_SECRET` | Confidential OIDC client secret                                                         |
+| `GITHUB_USERNAME`    | GitHub account whose public repos are synced (default `kaufmann-dev`)                   |
+| `GITHUB_TOKEN`       | Optional; enables private owned repos when the token has access                         |
 
 ## Development
 
@@ -133,7 +133,7 @@ deployment command is needed. The adapter-node server binds to the `PORT` Coolif
 Required:
 
 - `DATABASE_URL` — PostgreSQL connection string
-- `ORIGIN` — public origin required by adapter-node for form POST/CSRF; set to `https://hub.kaufmann.dev`
+- `ORIGIN` — public origin, set to `https://hub.kaufmann.dev`; keep it available at build time (Coolify's default) because the build embeds it as SvelteKit's `paths.origin` for form POST/CSRF checks
 - `OIDC_ISSUER` — OIDC issuer URL for discovery
 - `OIDC_CLIENT_ID` — confidential OIDC client ID
 - `OIDC_CLIENT_SECRET` — confidential OIDC client secret

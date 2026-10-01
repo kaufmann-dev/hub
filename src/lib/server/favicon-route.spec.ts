@@ -14,7 +14,7 @@ const mock = vi.hoisted(() => ({
 		  }
 }));
 
-vi.mock('$lib/server/db', () => ({
+vi.mock('#lib/server/db/index.js', () => ({
 	db: {
 		select: vi.fn(() => ({
 			from: vi.fn(() => ({

@@ -2,9 +2,9 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { db } from '$lib/server/db';
-import { marketWatchlist, supportedMarket } from '$lib/server/db/schema';
-import { marketWatchlistSchema } from '$lib/schemas';
+import { db } from '#lib/server/db/index.js';
+import { marketWatchlist, supportedMarket } from '#lib/server/db/schema.js';
+import { marketWatchlistSchema } from '#lib/schemas.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function parseId(raw: string): number | null {

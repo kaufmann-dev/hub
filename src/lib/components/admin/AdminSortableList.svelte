@@ -10,7 +10,7 @@
 		type DndEvent,
 		type Options as DndOptions
 	} from 'svelte-dnd-action';
-	import type { AdminSortItem } from '$lib/admin/reorder';
+	import type { AdminSortItem } from '#lib/admin/reorder.js';
 
 	type Props = {
 		items: AdminSortItem[];
@@ -65,7 +65,7 @@
 	<ol
 		class={[
 			'list-none space-y-3 rounded-lg',
-			items.length === 0 && 'border-border/80 min-h-16 border border-dashed'
+			items.length === 0 && 'min-h-16 border border-dashed border-border/80'
 		]}
 		aria-label={label}
 		data-sort-zone={zoneType}
@@ -75,9 +75,9 @@
 		{#each items as item (item.id)}
 			<li
 				class={[
-					'bg-card relative flex items-center gap-3 rounded-lg border py-3 pr-3 pl-12 shadow-xs',
+					'relative flex items-center gap-3 rounded-lg border bg-card py-3 pr-3 pl-12 shadow-xs',
 					item.hidden && !item.isDndShadowItem && 'opacity-50',
-					item.isDndShadowItem && 'border-primary/45 bg-primary/5 border-dashed shadow-inner'
+					item.isDndShadowItem && 'border-dashed border-primary/45 bg-primary/5 shadow-inner'
 				]}
 				aria-label={item.label}
 				data-sort-item={item.rowId}
@@ -86,7 +86,7 @@
 			>
 				<div
 					class={[
-						'admin-sort-handle text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 left-0 flex w-12 touch-none items-center justify-center rounded-l-lg outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset',
+						'admin-sort-handle absolute inset-y-0 left-0 flex w-12 touch-none items-center justify-center rounded-l-lg text-muted-foreground outline-none hover:text-foreground focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 						disabled && 'pointer-events-none opacity-40'
 					]}
 					aria-label={`Reorder ${item.label}`}
@@ -102,7 +102,7 @@
 
 	{#if items.length === 0}
 		<div
-			class="text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-sm"
+			class="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-sm text-muted-foreground"
 			aria-hidden="true"
 		>
 			{emptyLabel}

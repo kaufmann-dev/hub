@@ -1,8 +1,7 @@
-import { json } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from '$lib/server/db';
-import { city, githubProject, marketWatchlist, website } from '$lib/server/db/schema';
+import { db } from '#lib/server/db/index.js';
+import { city, githubProject, marketWatchlist, website } from '#lib/server/db/schema.js';
 import type { RequestHandler } from './$types';
 
 const websiteKindSchema = z.enum(['personal', 'third_party']);
@@ -126,25 +125,25 @@ async function setSortOrder(
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!locals.isAdmin) {
-		return json({ error: 'Forbidden' }, { status: 403 });
+		return Response.json({ error: 'Forbidden' }, { status: 403 });
 	}
 
 	let body: unknown;
 	try {
 		body = await request.json();
 	} catch {
-		return json({ error: 'Invalid JSON body' }, { status: 400 });
+		return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
 	const parsed = reorderSchema.safeParse(body);
 	if (!parsed.success) {
-		return json({ error: 'Invalid reorder request' }, { status: 400 });
+		return Response.json({ error: 'Invalid reorder request' }, { status: 400 });
 	}
 
 	const { type, ids } = parsed.data;
 	const currentIds = await currentIdsFor(type);
 	if (!sameIdSet(ids, currentIds)) {
-		return json({ error: 'Submitted ids do not match current rows' }, { status: 400 });
+		return Response.json({ error: 'Submitted ids do not match current rows' }, { status: 400 });
 	}
 
 	await db.transaction(async (tx) => {
@@ -169,5 +168,5 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 	});
 
-	return json({ success: true });
+	return Response.json({ success: true });
 };

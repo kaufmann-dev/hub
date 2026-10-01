@@ -1,14 +1,14 @@
 import { fail } from '@sveltejs/kit';
 import { asc, desc, eq } from 'drizzle-orm';
-import { db } from '$lib/server/db';
-import { website, githubProject, city, marketWatchlist } from '$lib/server/db/schema';
-import { syncGithubProjects } from '$lib/server/github';
-import { refreshAllWebsiteFavicons } from '$lib/server/favicon';
+import { db } from '#lib/server/db/index.js';
+import { website, githubProject, city, marketWatchlist } from '#lib/server/db/schema.js';
+import { syncGithubProjects } from '#lib/server/github.js';
+import { refreshAllWebsiteFavicons } from '#lib/server/favicon.js';
 import {
 	getConfiguredMarkets,
 	getSupportedMarkets,
 	unconfiguredSupportedMarkets
-} from '$lib/server/markets';
+} from '#lib/server/markets.js';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {

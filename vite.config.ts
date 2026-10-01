@@ -25,12 +25,8 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter(),
-			typescript: {
-				config: (config) => ({
-					...config,
-					include: [...config.include, '../drizzle.config.ts']
-				})
-			}
+			// Public origin behind the reverse proxy; used for CSRF checks and request URLs.
+			paths: { origin: process.env.ORIGIN || undefined }
 		}),
 		paraglideVitePlugin({ project: './project.inlang', outdir: './src/lib/paraglide' })
 	],

@@ -5,7 +5,7 @@ const mock = vi.hoisted(() => ({
 	getVisibleWebsiteHealth: vi.fn()
 }));
 
-vi.mock('$lib/server/website-health', () => mock);
+vi.mock('#lib/server/website-health.js', () => mock);
 
 const { POST } = await import('../../routes/api/website-health/refresh/+server');
 

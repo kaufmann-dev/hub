@@ -2,7 +2,7 @@
 	import { AlertDialog as AlertDialogPrimitive } from 'bits-ui';
 	import AlertDialogPortal from './alert-dialog-portal.svelte';
 	import AlertDialogOverlay from './alert-dialog-overlay.svelte';
-	import { cn, type WithoutChild, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { cn, type WithoutChild, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	let {
@@ -24,7 +24,7 @@
 		data-slot="alert-dialog-content"
 		data-size={size}
 		class={cn(
-			'bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 gap-6 rounded-[min(var(--radius-4xl),24px)] p-6 shadow-xl ring-1 data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 outline-none',
+			'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-full -translate-x-1/2 -translate-y-1/2 gap-6 rounded-[min(var(--radius-4xl),24px)] bg-popover p-6 text-popover-foreground shadow-xl ring-1 ring-foreground/5 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-md dark:ring-foreground/10',
 			className
 		)}
 		{...restProps}

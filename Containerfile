@@ -14,6 +14,8 @@ RUN pnpm install --frozen-lockfile
 # Build the SvelteKit app (adapter-node -> build/)
 COPY . .
 ENV DATABASE_URL=postgres://placeholder:5432/placeholder
+# Public origin embedded as SvelteKit's paths.origin
+ARG ORIGIN
 RUN pnpm build
 
 # Prune to production dependencies only

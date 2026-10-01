@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Popover as PopoverPrimitive } from 'bits-ui';
 	import PopoverPortal from './popover-portal.svelte';
-	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
+	import { cn, type WithoutChildrenOrChild } from '#lib/utils.js';
 	import type { ComponentProps } from 'svelte';
 
 	let {
@@ -23,7 +23,7 @@
 		{sideOffset}
 		{align}
 		class={cn(
-			'bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 flex flex-col gap-4 rounded-3xl p-4 text-sm shadow-lg ring-1 z-50 w-72 origin-(--transform-origin) outline-hidden',
+			'z-50 flex w-72 origin-(--transform-origin) flex-col gap-4 rounded-3xl bg-popover p-4 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/5 outline-hidden dark:ring-foreground/10',
 			className
 		)}
 		{...restProps}

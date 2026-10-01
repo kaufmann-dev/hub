@@ -11,7 +11,7 @@
 </script>
 
 {#if failed.includes(lightSrc)}
-	<ExternalLink class="text-muted-foreground mt-0.5 size-6 shrink-0 dark:hidden" />
+	<ExternalLink class="mt-0.5 size-6 shrink-0 text-muted-foreground dark:hidden" />
 {:else}
 	<img
 		src={lightSrc}
@@ -23,7 +23,7 @@
 {/if}
 
 {#if failed.includes(darkSrc)}
-	<ExternalLink class="text-muted-foreground mt-0.5 hidden size-6 shrink-0 dark:block" />
+	<ExternalLink class="mt-0.5 hidden size-6 shrink-0 text-muted-foreground dark:block" />
 {:else}
 	<img
 		src={darkSrc}

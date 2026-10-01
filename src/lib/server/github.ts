@@ -1,5 +1,5 @@
 import { sql, inArray, not } from 'drizzle-orm';
-import { env } from '$env/dynamic/private';
+import { GITHUB_USERNAME, GITHUB_TOKEN } from '$app/env/private';
 import { db } from './db';
 import { githubProject } from './db/schema';
 
@@ -50,13 +50,13 @@ export async function syncGithubProjects(): Promise<number> {
 	if (inFlight) return inFlight;
 	inFlight = (async () => {
 		try {
-			const username = env.GITHUB_USERNAME || 'kaufmann-dev';
+			const username = GITHUB_USERNAME || 'kaufmann-dev';
 			const headers: Record<string, string> = {
 				Accept: 'application/vnd.github+json',
 				'X-GitHub-Api-Version': '2022-11-28',
 				'User-Agent': 'hub.kaufmann.dev'
 			};
-			const token = env.GITHUB_TOKEN;
+			const token = GITHUB_TOKEN;
 			if (token) headers.Authorization = `Bearer ${token}`;
 
 			const allRepos: GithubRepo[] = [];

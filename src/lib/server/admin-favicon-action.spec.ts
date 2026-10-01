@@ -4,12 +4,12 @@ const mock = vi.hoisted(() => ({
 	refreshAllWebsiteFavicons: vi.fn()
 }));
 
-vi.mock('$lib/server/favicon', () => ({
+vi.mock('#lib/server/favicon.js', () => ({
 	refreshAllWebsiteFavicons: mock.refreshAllWebsiteFavicons
 }));
 
-vi.mock('$lib/server/db', () => ({ db: {} }));
-vi.mock('$lib/server/github', () => ({ syncGithubProjects: vi.fn() }));
+vi.mock('#lib/server/db/index.js', () => ({ db: {} }));
+vi.mock('#lib/server/github.js', () => ({ syncGithubProjects: vi.fn() }));
 
 const { actions } = await import('../../routes/admin/+page.server');
 

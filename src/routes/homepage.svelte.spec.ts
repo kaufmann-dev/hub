@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-svelte';
 import HomepageTest from './homepage-test.svelte';
 
-vi.mock('$lib/favicon', () => ({
+vi.mock('#lib/favicon.js', () => ({
 	faviconUrls: () => ({
 		light: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>',
 		dark: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>'

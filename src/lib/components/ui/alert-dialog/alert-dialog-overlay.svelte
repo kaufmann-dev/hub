@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AlertDialog as AlertDialogPrimitive } from 'bits-ui';
-	import { cn } from '$lib/utils.js';
+	import { cn } from '#lib/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -12,6 +12,6 @@
 <AlertDialogPrimitive.Overlay
 	bind:ref
 	data-slot="alert-dialog-overlay"
-	class={cn('bg-black/30 supports-backdrop-filter:backdrop-blur-sm fixed inset-0 z-50', className)}
+	class={cn('fixed inset-0 z-50 bg-black/30 supports-backdrop-filter:backdrop-blur-sm', className)}
 	{...restProps}
 />

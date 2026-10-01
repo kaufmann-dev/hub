@@ -20,8 +20,8 @@ const mock = vi.hoisted(() => {
 	return { db, tx, updateWhere, deleteWhere, refreshWebsiteFavicon: vi.fn() };
 });
 
-vi.mock('$lib/server/db', () => ({ db: mock.db }));
-vi.mock('$lib/server/favicon', () => ({ refreshWebsiteFavicon: mock.refreshWebsiteFavicon }));
+vi.mock('#lib/server/db/index.js', () => ({ db: mock.db }));
+vi.mock('#lib/server/favicon.js', () => ({ refreshWebsiteFavicon: mock.refreshWebsiteFavicon }));
 
 const { actions } = await import('../../routes/admin/websites/[[id]]/+page.server');
 
