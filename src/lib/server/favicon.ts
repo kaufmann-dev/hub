@@ -52,8 +52,13 @@ async function safeFetch(
 
 function normalizedImageType(response: Response, data: Buffer): string | null {
 	const declared = response.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
-	if (declared === 'image/svg+xml') {
-		return containsSvgMarkup(data) ? declared : null;
+	return sniffImageType(data, declared === 'image/svg+xml');
+}
+
+/** Identify a supported icon format from its bytes; SVG is accepted only when declared. */
+export function sniffImageType(data: Buffer, declaredSvg: boolean): string | null {
+	if (declaredSvg) {
+		return containsSvgMarkup(data) ? 'image/svg+xml' : null;
 	}
 	if (data.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) return 'image/png';
 	if (data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg';

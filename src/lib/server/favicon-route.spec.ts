@@ -1,24 +1,30 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type IconRow = {
+	websiteId: number;
+	data: Buffer | null;
+	contentType: string | null;
+	darkData: Buffer | null;
+	darkContentType: string | null;
+};
+
 const mock = vi.hoisted(() => ({
 	row: undefined as
-		| undefined
-		| {
-				websiteId: number;
-				data: Buffer | null;
-				contentType: string | null;
-				sourceUrl: string | null;
-				darkData: Buffer | null;
-				darkContentType: string | null;
-				darkSourceUrl: string | null;
-		  }
+		undefined | (IconRow & { sourceUrl: string | null; darkSourceUrl: string | null }),
+	override: undefined as undefined | (IconRow & { updatedAt: Date })
 }));
 
 vi.mock('#lib/server/db/index.js', () => ({
 	db: {
 		select: vi.fn(() => ({
-			from: vi.fn(() => ({
-				where: vi.fn(async () => (mock.row ? [mock.row] : []))
+			from: vi.fn((table: Record<symbol, string>) => ({
+				where: vi.fn(async () => {
+					const row =
+						table[Symbol.for('drizzle:Name')] === 'website_icon_override'
+							? mock.override
+							: mock.row;
+					return row ? [row] : [];
+				})
 			}))
 		}))
 	}
@@ -36,6 +42,7 @@ function event(id: string, theme = 'light') {
 describe('GET /websites/[id]/favicon/static/[theme]', () => {
 	beforeEach(() => {
 		mock.row = undefined;
+		mock.override = undefined;
 	});
 
 	it('serves cached bytes with image security headers', async () => {
@@ -132,5 +139,50 @@ describe('GET /websites/[id]/favicon/static/[theme]', () => {
 
 	it('returns 404 for an invalid theme', async () => {
 		await expect(GET(event('1', 'sepia'))).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('serves an uploaded override instead of the discovered favicon', async () => {
+		const override = Buffer.from('474946383961', 'hex');
+		mock.row = {
+			websiteId: 1,
+			data: Buffer.from('89504e470d0a1a0a', 'hex'),
+			contentType: 'image/png',
+			sourceUrl: 'https://example.com/favicon.png',
+			darkData: null,
+			darkContentType: null,
+			darkSourceUrl: null
+		};
+		mock.override = {
+			websiteId: 1,
+			data: override,
+			contentType: 'image/gif',
+			darkData: null,
+			darkContentType: null,
+			updatedAt: new Date()
+		};
+
+		const light = await GET(event('1', 'light'));
+		const dark = await GET(event('1', 'dark'));
+
+		expect(light.headers.get('content-type')).toBe('image/gif');
+		expect(Buffer.from(await light.arrayBuffer())).toEqual(override);
+		expect(Buffer.from(await dark.arrayBuffer())).toEqual(override);
+	});
+
+	it('serves the dark override and works without a discovered favicon', async () => {
+		const dark = Buffer.from('474946383961', 'hex');
+		mock.override = {
+			websiteId: 1,
+			data: Buffer.from('89504e470d0a1a0a', 'hex'),
+			contentType: 'image/png',
+			darkData: dark,
+			darkContentType: 'image/gif',
+			updatedAt: new Date()
+		};
+
+		const response = await GET(event('1', 'dark'));
+
+		expect(response.headers.get('content-type')).toBe('image/gif');
+		expect(Buffer.from(await response.arrayBuffer())).toEqual(dark);
 	});
 });

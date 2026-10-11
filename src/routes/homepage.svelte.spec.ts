@@ -127,7 +127,7 @@ describe('hub homepage website availability', () => {
 						sortOrder: 0,
 						createdAt,
 						updatedAt: createdAt,
-						faviconCheckedAt: null,
+						iconVersion: null,
 						health: {
 							state: 'healthy',
 							statusCode: 200,
@@ -145,7 +145,7 @@ describe('hub homepage website availability', () => {
 						sortOrder: 1,
 						createdAt,
 						updatedAt: createdAt,
-						faviconCheckedAt: null,
+						iconVersion: null,
 						health: {
 							state: 'unhealthy',
 							statusCode: 503,
@@ -163,7 +163,7 @@ describe('hub homepage website availability', () => {
 						sortOrder: 2,
 						createdAt,
 						updatedAt: createdAt,
-						faviconCheckedAt: null,
+						iconVersion: null,
 						health: null
 					},
 					{
@@ -176,7 +176,7 @@ describe('hub homepage website availability', () => {
 						sortOrder: 3,
 						createdAt,
 						updatedAt: createdAt,
-						faviconCheckedAt: null,
+						iconVersion: null,
 						health: {
 							state: 'unhealthy',
 							statusCode: 403,

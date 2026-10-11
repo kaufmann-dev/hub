@@ -1,11 +1,11 @@
 /** Resolve cache-versioned hub-owned favicon endpoints for both themes. */
 export function faviconUrls(
 	websiteId: number,
-	checkedAt?: Date | string | null
+	version?: Date | string | null
 ): { light: string; dark: string } {
-	const version = checkedAt ? `?v=${encodeURIComponent(new Date(checkedAt).toISOString())}` : '';
+	const query = version ? `?v=${encodeURIComponent(new Date(version).toISOString())}` : '';
 	return {
-		light: `/websites/${websiteId}/favicon/static/light${version}`,
-		dark: `/websites/${websiteId}/favicon/static/dark${version}`
+		light: `/websites/${websiteId}/favicon/static/light${query}`,
+		dark: `/websites/${websiteId}/favicon/static/dark${query}`
 	};
 }

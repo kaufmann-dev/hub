@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
-import { websiteFavicon } from '#lib/server/db/schema.js';
+import { websiteFavicon, websiteIconOverride } from '#lib/server/db/schema.js';
 import { staticizeSvgTheme } from '#lib/server/favicon-svg.js';
 import type { RequestHandler } from './$types';
 
@@ -9,7 +9,13 @@ export const GET: RequestHandler = async ({ params }) => {
 	const id = Number(params.id);
 	if (!Number.isInteger(id) || id <= 0) error(404, 'Favicon not found');
 	if (params.theme !== 'light' && params.theme !== 'dark') error(404, 'Favicon not found');
-	const [favicon] = await db.select().from(websiteFavicon).where(eq(websiteFavicon.websiteId, id));
+	const [override] = await db
+		.select()
+		.from(websiteIconOverride)
+		.where(eq(websiteIconOverride.websiteId, id));
+	const [favicon] = override
+		? [override]
+		: await db.select().from(websiteFavicon).where(eq(websiteFavicon.websiteId, id));
 	const dark = params.theme === 'dark';
 	const data = dark ? (favicon?.darkData ?? favicon?.data) : favicon?.data;
 	const contentType = dark

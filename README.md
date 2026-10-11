@@ -27,7 +27,8 @@ area for editing everything. It also shows stock-market status cards for curated
   exceptions like special sessions or non-public closures. The open/closed status and countdown
   update live in the browser as session boundaries pass.
 - **Websites** — personal/third-party links with automatically discovered, locally cached,
-  theme-aware favicons and cached server-side availability indicators for personal sites.
+  theme-aware favicons (replaceable per website with an uploaded icon, optionally with a separate
+  dark-mode variant) and cached server-side availability indicators for personal sites.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
   per-project overrides (hide, custom description) and admin drag ordering.
 - **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist

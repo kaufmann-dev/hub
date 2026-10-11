@@ -1,11 +1,22 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { desc, eq } from 'drizzle-orm';
-import { superValidate } from 'sveltekit-superforms';
+import { desc, eq, sql } from 'drizzle-orm';
+import { superValidate, setError, withFiles } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { db } from '#lib/server/db/index.js';
-import { website, websiteHealth } from '#lib/server/db/schema.js';
-import { websiteSchema } from '#lib/schemas.js';
+import {
+	website,
+	websiteFavicon,
+	websiteHealth,
+	websiteIconOverride
+} from '#lib/server/db/schema.js';
+import { websiteIconSchema, websiteSchema } from '#lib/schemas.js';
 import { refreshWebsiteFavicon } from '#lib/server/favicon.js';
+import {
+	iconVersion,
+	readIconUpload,
+	removeIconOverride,
+	saveIconOverride
+} from '#lib/server/icon-override.js';
 import type { Actions, PageServerLoad } from './$types';
 
 function parseId(raw: string | undefined): number | null {
@@ -29,11 +40,21 @@ export const load: PageServerLoad = async ({ params }) => {
 	if (params.id !== undefined && id === null) error(404, 'Not found');
 
 	if (id === null) {
-		return { form: await superValidate(zod4(websiteSchema)), isEdit: false };
+		return { form: await superValidate(zod4(websiteSchema)), isEdit: false as const };
 	}
 
-	const [row] = await db.select().from(website).where(eq(website.id, id));
-	if (!row) error(404, 'Website not found');
+	const [found] = await db
+		.select({
+			row: website,
+			iconVersion,
+			hasIconOverride: sql<boolean>`${websiteIconOverride.websiteId} is not null`
+		})
+		.from(website)
+		.leftJoin(websiteFavicon, eq(website.id, websiteFavicon.websiteId))
+		.leftJoin(websiteIconOverride, eq(website.id, websiteIconOverride.websiteId))
+		.where(eq(website.id, id));
+	if (!found) error(404, 'Website not found');
+	const { row } = found;
 
 	const form = await superValidate(
 		{
@@ -46,11 +67,18 @@ export const load: PageServerLoad = async ({ params }) => {
 		},
 		zod4(websiteSchema)
 	);
-	return { form, isEdit: true };
+	return {
+		form,
+		iconForm: await superValidate(zod4(websiteIconSchema), { id: 'icon' }),
+		isEdit: true as const,
+		websiteId: id,
+		iconVersion: found.iconVersion,
+		hasIconOverride: found.hasIconOverride
+	};
 };
 
 export const actions: Actions = {
-	default: async ({ request, params, locals }) => {
+	save: async ({ request, params, locals }) => {
 		if (!locals.isAdmin) return fail(403);
 		const form = await superValidate(request, zod4(websiteSchema));
 		if (!form.valid) return fail(400, { form });
@@ -93,5 +121,32 @@ export const actions: Actions = {
 		}
 
 		redirect(303, '/admin?tab=websites');
+	},
+
+	icon: async ({ request, params, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const id = parseId(params.id);
+		if (id === null) error(404, 'Website not found');
+		const form = await superValidate(request, zod4(websiteIconSchema), { id: 'icon' });
+		if (!form.valid) return fail(400, withFiles({ form }));
+
+		const icon = await readIconUpload(form.data.icon);
+		if (!icon) return setError(form, 'icon', 'Unsupported image file');
+		const darkIcon = form.data.darkIcon ? await readIconUpload(form.data.darkIcon) : null;
+		if (form.data.darkIcon && !darkIcon) {
+			return setError(form, 'darkIcon', 'Unsupported image file');
+		}
+
+		const [existing] = await db.select({ id: website.id }).from(website).where(eq(website.id, id));
+		if (!existing) error(404, 'Website not found');
+		await saveIconOverride(id, icon, darkIcon);
+		return withFiles({ form });
+	},
+
+	removeIcon: async ({ params, locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		const id = parseId(params.id);
+		if (id === null) error(404, 'Website not found');
+		await removeIconOverride(id);
 	}
 };

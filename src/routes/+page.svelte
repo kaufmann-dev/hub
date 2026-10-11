@@ -357,7 +357,7 @@
 
 					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{#each group.websites as site (site.id)}
-							{@const favicon = faviconUrls(site.id, site.faviconCheckedAt)}
+							{@const favicon = faviconUrls(site.id, site.iconVersion)}
 							<div
 								class="group relative flex flex-col rounded-xl border bg-card p-4 text-card-foreground hover:border-primary/50"
 							>

@@ -44,6 +44,18 @@ export const websiteFavicon = pgTable('website_favicon', {
 	checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+/** Admin-uploaded icon that replaces the discovered favicon; untouched by favicon refreshes. */
+export const websiteIconOverride = pgTable('website_icon_override', {
+	websiteId: integer('website_id')
+		.primaryKey()
+		.references(() => website.id, { onDelete: 'cascade' }),
+	data: bytea('data').notNull(),
+	contentType: text('content_type').notNull(),
+	darkData: bytea('dark_data'),
+	darkContentType: text('dark_content_type'),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 /** Last server-side reachability check for a visible website. */
 export const websiteHealth = pgTable('website_health', {
 	websiteId: integer('website_id')
@@ -174,6 +186,7 @@ export const oidcTransaction = pgTable(
 
 export type Website = typeof website.$inferSelect;
 export type WebsiteFavicon = typeof websiteFavicon.$inferSelect;
+export type WebsiteIconOverride = typeof websiteIconOverride.$inferSelect;
 export type WebsiteHealth = typeof websiteHealth.$inferSelect;
 export type GithubProject = typeof githubProject.$inferSelect;
 export type City = typeof city.$inferSelect;

@@ -3,6 +3,7 @@ import { db } from '#lib/server/db/index.js';
 import {
 	website,
 	websiteFavicon,
+	websiteIconOverride,
 	websiteHealth,
 	githubProject,
 	city
@@ -10,6 +11,7 @@ import {
 import { getWeather } from '#lib/server/weather.js';
 import { syncIfStale } from '#lib/server/github.js';
 import { refreshStaleFavicons } from '#lib/server/favicon.js';
+import { iconVersion } from '#lib/server/icon-override.js';
 import { getWatchedMarketStatuses } from '#lib/server/markets.js';
 import {
 	healthSnapshot,
@@ -35,7 +37,7 @@ export const load: PageServerLoad = async () => {
 		db
 			.select({
 				...getTableColumns(website),
-				faviconCheckedAt: websiteFavicon.checkedAt,
+				iconVersion,
 				healthy: websiteHealth.healthy,
 				healthStatusCode: websiteHealth.statusCode,
 				healthFailureKind: websiteHealth.failureKind,
@@ -43,6 +45,7 @@ export const load: PageServerLoad = async () => {
 			})
 			.from(website)
 			.leftJoin(websiteFavicon, eq(website.id, websiteFavicon.websiteId))
+			.leftJoin(websiteIconOverride, eq(website.id, websiteIconOverride.websiteId))
 			.leftJoin(websiteHealth, eq(website.id, websiteHealth.websiteId))
 			.where(eq(website.hidden, false))
 			.orderBy(asc(website.sortOrder), asc(website.title)),

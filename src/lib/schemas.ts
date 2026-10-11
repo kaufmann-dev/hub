@@ -15,6 +15,20 @@ export const websiteSchema = z.object({
 });
 export type WebsiteSchema = typeof websiteSchema;
 
+/** Per-file cap; two uploads plus multipart overhead stay under adapter-node's 512K body limit. */
+export const MAX_ICON_UPLOAD_BYTES = 200_000;
+
+const iconFile = (message: string) =>
+	z
+		.instanceof(File, { message })
+		.refine((file) => file.size <= MAX_ICON_UPLOAD_BYTES, 'Icon must be 200 KB or smaller');
+
+export const websiteIconSchema = z.object({
+	icon: iconFile('Choose an icon file'),
+	darkIcon: iconFile('Choose a dark icon file').optional()
+});
+export type WebsiteIconSchema = typeof websiteIconSchema;
+
 const requiredCoordinate = (min: number, max: number) =>
 	z.preprocess((value) => (value === '' ? undefined : value), z.coerce.number().min(min).max(max));
 

@@ -8,6 +8,7 @@
 	import { Textarea } from '#lib/components/ui/textarea/index.js';
 	import * as Select from '#lib/components/ui/select/index.js';
 	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import IconOverrideForm from './IconOverrideForm.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -33,7 +34,7 @@
 			<h1 class="text-lg font-semibold">{data.isEdit ? 'Edit website' : 'Add website'}</h1>
 		</div>
 
-		<form method="POST" use:enhance class="space-y-4">
+		<form method="POST" action="?/save" use:enhance class="space-y-4">
 			<Form.Field {form} name="title">
 				<Form.Control>
 					{#snippet children({ props })}
@@ -96,5 +97,14 @@
 				<a href="/admin?tab=websites" class={buttonVariants({ variant: 'outline' })}>Cancel</a>
 			</div>
 		</form>
+
+		{#if data.isEdit}
+			<IconOverrideForm
+				iconForm={data.iconForm}
+				websiteId={data.websiteId}
+				iconVersion={data.iconVersion}
+				hasIconOverride={data.hasIconOverride}
+			/>
+		{/if}
 	</main>
 </div>

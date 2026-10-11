@@ -71,6 +71,13 @@
       "when": 1784644150187,
       "tag": "0009_illegal_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791710968987,
+      "tag": "0010_sparkling_epoch",
+      "breakpoints": true
     }
   ]
 }

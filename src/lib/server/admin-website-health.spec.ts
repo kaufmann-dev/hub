@@ -40,7 +40,7 @@ describe('admin website health invalidation', () => {
 		form.set('sortOrder', '0');
 
 		await expect(
-			actions.default({
+			actions.save({
 				request: new Request('https://hub.example.com/admin/websites/1', {
 					method: 'POST',
 					body: form
