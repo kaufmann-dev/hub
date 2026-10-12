@@ -3,7 +3,7 @@ import {
 	buildMarketStatus,
 	buildMarketTransitions,
 	buildWatchedMarketStatuses,
-	getHolidays,
+	getCalendarYear,
 	type ConfiguredMarket,
 	type MarketStatus,
 	type WatchedMarketStatus
@@ -16,9 +16,9 @@ type SessionWindow = {
 	sortOrder: number;
 };
 
-type ClosureOverride = {
-	closureDate: string;
-	kind: 'closed' | 'session';
+type CalendarRule = {
+	rule: string;
+	kind: 'closed' | 'session' | 'ignore';
 	reason: string;
 	sortOrder: number;
 	startTime: string | null;
@@ -27,7 +27,7 @@ type ClosureOverride = {
 
 type ScheduleFixture = SupportedMarket & {
 	sessions: SessionWindow[];
-	closures: ClosureOverride[];
+	rules: CalendarRule[];
 };
 
 function createMarket(overrides: Partial<SupportedMarket> = {}): SupportedMarket {
@@ -38,7 +38,7 @@ function createMarket(overrides: Partial<SupportedMarket> = {}): SupportedMarket
 		city: 'New York',
 		country: 'United States',
 		timezone: 'America/New_York',
-		holidayCalendarCode: 'US',
+		holidayCalendarCode: null,
 		weekendDays: ['sat', 'sun'],
 		...overrides
 	};
@@ -47,12 +47,12 @@ function createMarket(overrides: Partial<SupportedMarket> = {}): SupportedMarket
 function createScheduleFixture(
 	marketOverrides: Partial<SupportedMarket>,
 	sessions: SessionWindow[],
-	closures: ClosureOverride[] = []
+	rules: CalendarRule[] = []
 ): ScheduleFixture {
 	return {
 		...createMarket(marketOverrides),
 		sessions,
-		closures
+		rules
 	};
 }
 
@@ -80,22 +80,31 @@ function expectStatus(
 	expect(status).toEqual(expect.objectContaining(values));
 }
 
+function closedRule(rule: string, reason: string): CalendarRule {
+	return { rule, kind: 'closed', reason, sortOrder: 0, startTime: null, endTime: null };
+}
+
 const nyse = createScheduleFixture(
 	{},
 	[{ startTime: '09:30', endTime: '16:00', sortOrder: 0 }],
 	[
+		closedRule('easter -2', 'Good Friday'),
+		closedRule(
+			'07-04 and if saturday then previous friday if sunday then next monday',
+			'Independence Day'
+		),
 		{
-			closureDate: '2026-04-03',
-			kind: 'closed',
-			reason: 'Good Friday',
-			sortOrder: 0,
-			startTime: null,
-			endTime: null
-		},
-		{
-			closureDate: '2026-11-27',
+			rule: 'friday after 4th thursday in November',
 			kind: 'session',
 			reason: 'Day after Thanksgiving early close',
+			sortOrder: 0,
+			startTime: '09:30',
+			endTime: '13:00'
+		},
+		{
+			rule: '07-03',
+			kind: 'session',
+			reason: 'Independence Day early close',
 			sortOrder: 0,
 			startTime: '09:30',
 			endTime: '13:00'
@@ -129,7 +138,18 @@ const krx = createScheduleFixture(
 		timezone: 'Asia/Seoul',
 		holidayCalendarCode: 'KR'
 	},
-	[{ startTime: '09:00', endTime: '15:30', sortOrder: 0 }]
+	[{ startTime: '09:00', endTime: '15:30', sortOrder: 0 }],
+	[
+		{
+			rule: 'korean 01-0-01 P3D',
+			kind: 'ignore',
+			reason: 'Misaligned Seollal span in the public calendar',
+			sortOrder: 0,
+			startTime: null,
+			endTime: null
+		},
+		closedRule('korean 01-0-00 P3D', 'Seollal')
+	]
 );
 
 describe('market schedule engine', () => {
@@ -273,13 +293,52 @@ describe('market schedule engine', () => {
 		expect(transitions[1]).toEqual({ at: Date.UTC(2026, 5, 25, 6, 30), kind: 'close' });
 	});
 
-	it('loads public holidays for the country-based calendars used by the schedule engine', () => {
-		const korea = getHolidays('KR', 2026, 'Asia/Seoul');
-		const taiwan = getHolidays('TW', 2026, 'Asia/Taipei');
+	it('keeps rule-only markets open on public holidays they do not observe', () => {
+		// Columbus Day: a US federal holiday, but a regular NYSE trading day.
+		const status = buildMarketStatus(nyse, new Date('2026-10-12T17:00:00.000Z'));
 
-		expect(korea.available).toBe(true);
-		expect(taiwan.available).toBe(true);
-		expect(korea.namesByDate.has('2026-01-01')).toBe(true);
-		expect(taiwan.namesByDate.has('2026-01-01')).toBe(true);
+		expectStatus(status, { currentStatus: 'open', countdownLabel: 'Closes in 3h 00m' });
+	});
+
+	it('applies recurring rules in every year without date-specific rows', () => {
+		const calendar2027 = getCalendarYear(nyse, 2027);
+		const calendar2028 = getCalendarYear(nyse, 2028);
+
+		expect(calendar2027.closures.get('2027-03-26')).toBe('Good Friday');
+		expect(calendar2028.closures.get('2028-04-14')).toBe('Good Friday');
+		expect(calendar2027.specialSessions.get('2027-11-26')?.reason).toBe(
+			'Day after Thanksgiving early close'
+		);
+	});
+
+	it('lets an observed closure win over an early-close rule on the same day', () => {
+		// July 4, 2026 is a Saturday, so Friday July 3 is the observed closure.
+		const status = buildMarketStatus(nyse, new Date('2026-07-03T15:00:00.000Z'));
+
+		expectStatus(status, {
+			currentStatus: 'closed',
+			supplementalDetail: 'Closed for Independence Day.'
+		});
+	});
+
+	it('replaces ignored public holiday rules and expands multi-day holidays', () => {
+		const calendar = getCalendarYear(krx, 2026);
+
+		expect(calendar.closures.has('2026-02-16')).toBe(true);
+		expect(calendar.closures.has('2026-02-18')).toBe(true);
+		expect(calendar.closures.has('2026-02-19')).toBe(false);
+		expect(calendar.holidays.has('2026-02-19')).toBe(false);
+		// Chuseok spans three public holidays.
+		expect(calendar.holidays.has('2026-09-24')).toBe(true);
+		expect(calendar.holidays.has('2026-09-25')).toBe(true);
+		expect(calendar.holidays.has('2026-09-26')).toBe(true);
+	});
+
+	it('rejects calendar rules that date-holidays cannot parse', () => {
+		const broken = createScheduleFixture({ slug: 'broken' }, nyse.sessions, [
+			closedRule('not a rule', 'Broken')
+		]);
+
+		expect(() => getCalendarYear(broken, 2026)).toThrow('Invalid calendar rule');
 	});
 });

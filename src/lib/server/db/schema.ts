@@ -5,7 +5,6 @@ import {
 	text,
 	boolean,
 	timestamp,
-	date,
 	doublePrecision,
 	customType,
 	index
@@ -110,7 +109,8 @@ export const supportedMarket = pgTable('supported_market', {
 	city: text('city').notNull(),
 	country: text('country').notNull(),
 	timezone: text('timezone').notNull(),
-	holidayCalendarCode: text('holiday_calendar_code').notNull(),
+	/** `date-holidays` country/region code; null when the exchange calendar is defined by rules alone. */
+	holidayCalendarCode: text('holiday_calendar_code'),
 	weekendDays: text('weekend_days').array().notNull()
 });
 
@@ -126,16 +126,17 @@ export const supportedMarketSession = pgTable('supported_market_session', {
 });
 
 /**
- * Date-specific closures and special-session overrides.
- * `kind = "closed"` blocks the whole day.
- * `kind = "session"` replaces the regular schedule with one or more rows for that date.
+ * Recurring exchange calendar rules in `date-holidays` rule syntax (e.g. `easter -2`).
+ * `kind = "closed"` blocks every matching day.
+ * `kind = "session"` replaces the regular schedule with one or more rows for matching weekdays.
+ * `kind = "ignore"` removes that rule from the market's public holiday calendar.
  */
 export const supportedMarketClosure = pgTable('supported_market_closure', {
 	id: serial('id').primaryKey(),
 	marketId: integer('market_id')
 		.notNull()
 		.references(() => supportedMarket.id, { onDelete: 'cascade' }),
-	closureDate: date('closure_date').notNull(),
+	rule: text('rule').notNull(),
 	kind: text('kind').notNull(),
 	reason: text('reason').notNull(),
 	sortOrder: integer('sort_order').notNull().default(0),

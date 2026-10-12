@@ -16,9 +16,9 @@ type SessionWindow = {
 	sortOrder: number;
 };
 
-type ClosureOverride = {
-	closureDate: string;
-	kind: 'closed' | 'session';
+type CalendarRule = {
+	rule: string;
+	kind: 'closed' | 'session' | 'ignore';
 	reason: string;
 	sortOrder: number;
 	startTime: string | null;
@@ -27,7 +27,14 @@ type ClosureOverride = {
 
 type ScheduleDefinition = SupportedMarket & {
 	sessions: SessionWindow[];
-	closures: ClosureOverride[];
+	rules: CalendarRule[];
+};
+
+/** One year of a market's calendar, resolved to local `YYYY-MM-DD` dates. */
+type CalendarYear = {
+	holidays: Map<string, string>;
+	closures: Map<string, string>;
+	specialSessions: Map<string, { reason: string; sessions: SessionWindow[] }>;
 };
 
 type DaySchedule = {
@@ -68,12 +75,7 @@ export type WatchedMarketStatus = MarketStatus & {
 	sortOrder: number;
 };
 
-export type HolidayLookup = {
-	namesByDate: Map<string, string>;
-	available: boolean;
-};
-
-const holidayCache = new Map<string, HolidayLookup>();
+const calendarCache = new Map<string, CalendarYear>();
 const weekdayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 export async function getConfiguredMarkets(includeHidden = true): Promise<ConfiguredMarket[]> {
@@ -123,7 +125,7 @@ export async function loadScheduleDefinitions(
 ): Promise<Map<number, ScheduleDefinition>> {
 	if (marketIds.length === 0) return new Map();
 
-	const [markets, sessions, closures] = await Promise.all([
+	const [markets, sessions, rules] = await Promise.all([
 		db.select().from(supportedMarket).where(inArray(supportedMarket.id, marketIds)),
 		db
 			.select()
@@ -134,11 +136,7 @@ export async function loadScheduleDefinitions(
 			.select()
 			.from(supportedMarketClosure)
 			.where(inArray(supportedMarketClosure.marketId, marketIds))
-			.orderBy(
-				asc(supportedMarketClosure.marketId),
-				asc(supportedMarketClosure.closureDate),
-				asc(supportedMarketClosure.sortOrder)
-			)
+			.orderBy(asc(supportedMarketClosure.marketId), asc(supportedMarketClosure.sortOrder))
 	]);
 
 	const sessionsByMarket = new Map<number, SessionWindow[]>();
@@ -152,18 +150,18 @@ export async function loadScheduleDefinitions(
 		sessionsByMarket.set(session.marketId, rows);
 	}
 
-	const closuresByMarket = new Map<number, ClosureOverride[]>();
-	for (const closure of closures) {
-		const rows = closuresByMarket.get(closure.marketId) ?? [];
+	const rulesByMarket = new Map<number, CalendarRule[]>();
+	for (const rule of rules) {
+		const rows = rulesByMarket.get(rule.marketId) ?? [];
 		rows.push({
-			closureDate: closure.closureDate,
-			kind: closure.kind as ClosureOverride['kind'],
-			reason: closure.reason,
-			sortOrder: closure.sortOrder,
-			startTime: closure.startTime,
-			endTime: closure.endTime
+			rule: rule.rule,
+			kind: rule.kind as CalendarRule['kind'],
+			reason: rule.reason,
+			sortOrder: rule.sortOrder,
+			startTime: rule.startTime,
+			endTime: rule.endTime
 		});
-		closuresByMarket.set(closure.marketId, rows);
+		rulesByMarket.set(rule.marketId, rows);
 	}
 
 	return new Map(
@@ -172,7 +170,7 @@ export async function loadScheduleDefinitions(
 			{
 				...market,
 				sessions: sessionsByMarket.get(market.id) ?? [],
-				closures: closuresByMarket.get(market.id) ?? []
+				rules: rulesByMarket.get(market.id) ?? []
 			}
 		])
 	);
@@ -306,82 +304,104 @@ export function buildMarketStatus(market: ScheduleDefinition, now: Date): Market
 	};
 }
 
-export function getHolidays(
-	holidayCalendarCode: string,
-	year: number,
-	timeZone: string
-): HolidayLookup {
-	const cacheKey = `${holidayCalendarCode}-${year}`;
-	const cached = holidayCache.get(cacheKey);
+/**
+ * Resolves a market's calendar for one year: public holidays from its
+ * `date-holidays` region (minus `ignore` rules) plus its own recurring
+ * closure and special-session rules.
+ */
+export function getCalendarYear(market: ScheduleDefinition, year: number): CalendarYear {
+	const cacheKey = JSON.stringify([
+		market.holidayCalendarCode,
+		market.timezone,
+		market.rules,
+		year
+	]);
+	const cached = calendarCache.get(cacheKey);
 	if (cached) return cached;
 
-	try {
-		const hd = new Holidays(holidayCalendarCode, { timezone: timeZone });
-		const namesByDate = new Map<string, string>();
+	const calendar: CalendarYear = {
+		holidays: new Map(),
+		closures: new Map(),
+		specialSessions: new Map()
+	};
 
-		for (const holiday of hd.getHolidays(year)) {
-			if (holiday.type !== 'public') continue;
-			if (!namesByDate.has(holiday.date.slice(0, 10))) {
-				namesByDate.set(holiday.date.slice(0, 10), holiday.name);
+	if (market.holidayCalendarCode) {
+		const publicHolidays = new Holidays(market.holidayCalendarCode, { timezone: market.timezone });
+		for (const rule of market.rules) {
+			if (rule.kind === 'ignore' && !publicHolidays.unsetRule(rule.rule)) {
+				throw new Error(`Unknown ignored rule "${rule.rule}" for supported market ${market.slug}`);
 			}
 		}
-
-		const lookup = { namesByDate, available: true };
-		holidayCache.set(cacheKey, lookup);
-		return lookup;
-	} catch {
-		return { namesByDate: new Map(), available: false };
+		for (const holiday of publicHolidays.getHolidays(year)) {
+			if (holiday.type !== 'public') continue;
+			for (const date of holidayDates(holiday)) {
+				if (!calendar.holidays.has(date)) calendar.holidays.set(date, holiday.name);
+			}
+		}
 	}
+
+	const marketRules = new Holidays();
+	for (const rule of market.rules) {
+		if (rule.kind === 'ignore') continue;
+		if (!marketRules.setHoliday(rule.rule, { name: rule.reason, type: 'public' })) {
+			throw new Error(`Invalid calendar rule "${rule.rule}" for supported market ${market.slug}`);
+		}
+	}
+	for (const holiday of marketRules.getHolidays(year)) {
+		for (const rule of market.rules) {
+			if (rule.rule !== holiday.rule || rule.kind === 'ignore') continue;
+			for (const date of holidayDates(holiday)) {
+				if (rule.kind === 'closed') {
+					calendar.closures.set(date, rule.reason);
+					continue;
+				}
+				const special = calendar.specialSessions.get(date) ?? { reason: rule.reason, sessions: [] };
+				special.sessions.push({
+					startTime: rule.startTime ?? '00:00',
+					endTime: rule.endTime ?? '00:00',
+					sortOrder: rule.sortOrder
+				});
+				special.sessions.sort((left, right) => left.sortOrder - right.sortOrder);
+				calendar.specialSessions.set(date, special);
+			}
+		}
+	}
+
+	calendarCache.set(cacheKey, calendar);
+	return calendar;
+}
+
+/** Local dates covered by a holiday, including every day of multi-day rules such as `P3D`. */
+function holidayDates(holiday: { date: string; start: Date; end: Date }): string[] {
+	const first = holiday.date.slice(0, 10);
+	const days = Math.max(
+		1,
+		Math.round((holiday.end.getTime() - holiday.start.getTime()) / 86_400_000)
+	);
+	return Array.from({ length: days }, (_, offset) => addDays(first, offset));
 }
 
 function dayScheduleForDate(market: ScheduleDefinition, date: string): DaySchedule {
-	const overrides = market.closures.filter((closure) => closure.closureDate === date);
-	const specialSessions = overrides
-		.filter((closure) => closure.kind === 'session')
-		.map((closure) => ({
-			startTime: closure.startTime ?? '00:00',
-			endTime: closure.endTime ?? '00:00',
-			sortOrder: closure.sortOrder
-		}))
-		.sort((left, right) => left.sortOrder - right.sortOrder);
+	const calendar = getCalendarYear(market, Number.parseInt(date.slice(0, 4), 10));
 
-	if (specialSessions.length > 0) {
-		return {
-			date,
-			sessions: specialSessions,
-			source: 'special-session',
-			reason: overrides[0]?.reason ?? null
-		};
-	}
-
-	const closedOverride = overrides.find((closure) => closure.kind === 'closed');
-	if (closedOverride) {
-		return {
-			date,
-			sessions: [],
-			source: 'closed',
-			reason: closedOverride.reason
-		};
+	const closure = calendar.closures.get(date);
+	if (closure) {
+		return { date, sessions: [], source: 'closed', reason: closure };
 	}
 
 	const weekend = weekdayNames[weekdayNumber(date)];
 	if (market.weekendDays.includes(weekend)) {
-		return {
-			date,
-			sessions: [],
-			source: 'weekend',
-			reason: 'Weekend closure'
-		};
+		return { date, sessions: [], source: 'weekend', reason: 'Weekend closure' };
 	}
 
-	const holidayName = holidayNameForDate(market, date);
+	const holidayName = calendar.holidays.get(date);
 	if (holidayName) {
-		return {
-			date,
-			sessions: [],
-			source: 'holiday',
-			reason: holidayName
-		};
+		return { date, sessions: [], source: 'holiday', reason: holidayName };
+	}
+
+	const special = calendar.specialSessions.get(date);
+	if (special) {
+		return { date, sessions: special.sessions, source: 'special-session', reason: special.reason };
 	}
 
 	return {
@@ -416,12 +436,6 @@ function findNextOpening(
 	}
 
 	throw new Error(`No upcoming session found for supported market ${market.slug}`);
-}
-
-function holidayNameForDate(market: ScheduleDefinition, date: string): string | null {
-	const year = Number.parseInt(date.slice(0, 4), 10);
-	const holidays = getHolidays(market.holidayCalendarCode, year, market.timezone);
-	return holidays.namesByDate.get(date) ?? null;
 }
 
 function detailForToday(schedule: DaySchedule): string | null {

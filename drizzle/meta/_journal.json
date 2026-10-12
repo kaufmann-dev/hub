@@ -78,6 +78,20 @@
       "when": 1791710968987,
       "tag": "0010_sparkling_epoch",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791825194783,
+      "tag": "0011_market_calendar_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791825200474,
+      "tag": "0012_market_calendar_rules_required",
+      "breakpoints": true
     }
   ]
 }

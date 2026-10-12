@@ -23,8 +23,9 @@ area for editing everything. It also shows stock-market status cards for curated
   weather from Open-Meteo that refreshes in the browser (every 10 min and on tab focus), so a
   long-open tab stays current. Cities are editable in the database.
 - **Market status** — curated stock exchanges backed by a local schedule engine with canonical
-  exchange metadata, country-holiday calculation, and explicit exchange override rows for
-  exceptions like special sessions or non-public closures. The open/closed status and countdown
+  exchange metadata and recurring calendar rules (`date-holidays` rule syntax) for exchange
+  closures, early closes, and public holidays an exchange ignores; markets whose exchange
+  calendar diverges heavily from public holidays use rules alone. The open/closed status and countdown
   update live in the browser as session boundaries pass.
 - **Websites** — personal/third-party links with automatically discovered, locally cached,
   theme-aware favicons (replaceable per website with an uploaded icon, optionally with a separate
