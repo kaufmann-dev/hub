@@ -46,6 +46,28 @@ export function githubReposUrl(username: string, hasToken: boolean): string {
 	return `https://api.github.com/users/${username}/repos?per_page=100&sort=updated&type=owner`;
 }
 
+/**
+ * Whether Dependabot alerts are enabled for a repo. GitHub answers 204 (on) or
+ * 404 (off) only to tokens with repository administration read access; any
+ * other answer or failure means the setting is unknown.
+ */
+export async function fetchDependabotAlerts(
+	fullName: string,
+	headers: Record<string, string>
+): Promise<boolean | null> {
+	try {
+		const res = await fetch(`https://api.github.com/repos/${fullName}/vulnerability-alerts`, {
+			headers,
+			signal: AbortSignal.timeout(10_000)
+		});
+		if (res.status === 204) return true;
+		if (res.status === 404) return false;
+		return null;
+	} catch {
+		return null;
+	}
+}
+
 export async function syncGithubProjects(): Promise<number> {
 	if (inFlight) return inFlight;
 	inFlight = (async () => {
@@ -81,6 +103,8 @@ export async function syncGithubProjects(): Promise<number> {
 
 			const now = new Date();
 			for (const r of usable) {
+				// Sequential on purpose: GitHub penalizes concurrent bursts with secondary rate limits.
+				const dependabotAlerts = token ? await fetchDependabotAlerts(r.full_name, headers) : null;
 				await db
 					.insert(githubProject)
 					.values({
@@ -94,6 +118,7 @@ export async function syncGithubProjects(): Promise<number> {
 						stars: r.stargazers_count,
 						topics: r.topics ?? [],
 						pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
+						dependabotAlerts,
 						syncedAt: now
 					})
 					.onConflictDoUpdate({
@@ -108,6 +133,7 @@ export async function syncGithubProjects(): Promise<number> {
 							stars: r.stargazers_count,
 							topics: r.topics ?? [],
 							pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
+							dependabotAlerts,
 							syncedAt: now
 						}
 					});

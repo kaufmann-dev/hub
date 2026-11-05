@@ -1,6 +1,17 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Search, Star, ExternalLink, Settings, Sun, Moon, Landmark, Info } from '@lucide/svelte';
+	import {
+		Search,
+		Star,
+		ExternalLink,
+		Settings,
+		Sun,
+		Moon,
+		Landmark,
+		Info,
+		ShieldCheck,
+		ShieldOff
+	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -424,15 +435,33 @@
 						<div
 							class="group flex flex-col rounded-xl border bg-card p-4 text-card-foreground hover:border-primary/50"
 						>
-							<a
-								href={project.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="flex items-center gap-2 font-medium"
-							>
-								<GithubMark class="size-4 shrink-0" />
-								<span class="truncate">{project.name}</span>
-							</a>
+							<div class="flex items-center justify-between gap-2">
+								<a
+									href={project.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="flex min-w-0 items-center gap-2 font-medium"
+								>
+									<GithubMark class="size-4 shrink-0" />
+									<span class="truncate">{project.name}</span>
+								</a>
+								{#if project.dependabotAlerts !== null}
+									{@const DependabotIcon = project.dependabotAlerts ? ShieldCheck : ShieldOff}
+									{@const dependabotLabel = `Dependabot alerts ${project.dependabotAlerts ? 'enabled' : 'disabled'}`}
+									<span
+										role="img"
+										aria-label={dependabotLabel}
+										title={dependabotLabel}
+										data-dependabot-alerts={project.dependabotAlerts ? 'enabled' : 'disabled'}
+										class={[
+											'shrink-0',
+											project.dependabotAlerts ? 'text-emerald-500' : 'text-red-500'
+										]}
+									>
+										<DependabotIcon class="size-4" />
+									</span>
+								{/if}
+							</div>
 							{#if project.descriptionOverride ?? project.description}
 								<p class="mt-1 line-clamp-2 flex-1 text-sm text-muted-foreground">
 									{project.descriptionOverride ?? project.description}

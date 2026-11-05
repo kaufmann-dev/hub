@@ -31,7 +31,9 @@ area for editing everything. It also shows stock-market status cards for curated
   theme-aware favicons (replaceable per website with an uploaded icon, optionally with a separate
   dark-mode variant) and cached server-side availability indicators for personal sites.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
-  per-project overrides (hide, custom description) and admin drag ordering.
+  per-project overrides (hide, custom description) and admin drag ordering. Each card shows
+  whether Dependabot alerts are enabled when `GITHUB_TOKEN` can read repository administration
+  settings.
 - **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
   cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a
@@ -62,7 +64,7 @@ Copy `.env.example` to `.env` and fill it in:
 | `OIDC_CLIENT_ID`     | Confidential OIDC client ID                                                             |
 | `OIDC_CLIENT_SECRET` | Confidential OIDC client secret                                                         |
 | `GITHUB_USERNAME`    | GitHub account whose public repos are synced (default `kaufmann-dev`)                   |
-| `GITHUB_TOKEN`       | Optional; enables private owned repos when the token has access                         |
+| `GITHUB_TOKEN`       | Optional; enables private owned repos and the Dependabot alert indicator                |
 
 ## Development
 
@@ -144,4 +146,6 @@ Optional:
 
 - `GITHUB_USERNAME` — GitHub account to sync (default `kaufmann-dev`)
 - `GITHUB_TOKEN` — enables private owned repos and raises the GitHub API rate limit when
-  the token has access to those repositories; sync falls back to public repos without it
+  the token has access to those repositories; sync falls back to public repos without it.
+  The Dependabot alert indicator needs read access to repository administration
+  (fine-grained "Administration: read", or classic `repo` scope)

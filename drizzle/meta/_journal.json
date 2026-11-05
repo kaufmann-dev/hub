@@ -92,6 +92,13 @@
       "when": 1791825200474,
       "tag": "0012_market_calendar_rules_required",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793877697070,
+      "tag": "0013_github_project_dependabot_alerts",
+      "breakpoints": true
     }
   ]
 }

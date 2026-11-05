@@ -30,7 +30,22 @@ vi.mock('$app/env/private', () => ({
 }));
 vi.mock('./db', () => ({ db: mock.db }));
 
-const { githubReposUrl, syncGithubProjects } = await import('./github');
+const { fetchDependabotAlerts, githubReposUrl, syncGithubProjects } = await import('./github');
+
+const repo = {
+	id: 1,
+	name: 'private-repo',
+	full_name: 'example-user/private-repo',
+	html_url: 'https://github.com/example-user/private-repo',
+	description: null,
+	homepage: null,
+	language: 'TypeScript',
+	stargazers_count: 0,
+	topics: [],
+	pushed_at: null,
+	fork: false,
+	archived: false
+};
 
 function githubResponse(repos: unknown[]) {
 	return new Response(JSON.stringify(repos), {
@@ -60,25 +75,12 @@ describe('GitHub project sync', () => {
 		);
 	});
 
-	it('fetches authenticated repositories when a token is configured', async () => {
+	it('fetches authenticated repositories and their Dependabot alert setting with a token', async () => {
 		mock.env.GITHUB_TOKEN = 'secret-token';
-		const fetchMock = vi.fn(async () =>
-			githubResponse([
-				{
-					id: 1,
-					name: 'private-repo',
-					full_name: 'example-user/private-repo',
-					html_url: 'https://github.com/example-user/private-repo',
-					description: null,
-					homepage: null,
-					language: 'TypeScript',
-					stargazers_count: 0,
-					topics: [],
-					pushed_at: null,
-					fork: false,
-					archived: false
-				}
-			])
+		const fetchMock = vi.fn(async (url: string) =>
+			url.endsWith('/vulnerability-alerts')
+				? new Response(null, { status: 204 })
+				: githubResponse([repo])
 		);
 		vi.stubGlobal('fetch', fetchMock);
 
@@ -90,6 +92,42 @@ describe('GitHub project sync', () => {
 				headers: expect.objectContaining({ Authorization: 'Bearer secret-token' })
 			})
 		);
-		expect(mock.upserts).toHaveLength(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'https://api.github.com/repos/example-user/private-repo/vulnerability-alerts',
+			expect.anything()
+		);
+		expect(mock.upserts).toEqual([expect.objectContaining({ dependabotAlerts: true })]);
+	});
+
+	it('skips the Dependabot check without a token', async () => {
+		const fetchMock = vi.fn(async () => githubResponse([repo]));
+		vi.stubGlobal('fetch', fetchMock);
+
+		await expect(syncGithubProjects()).resolves.toBe(1);
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(mock.upserts).toEqual([expect.objectContaining({ dependabotAlerts: null })]);
+	});
+
+	it.each([
+		[204, true],
+		[404, false],
+		[403, null]
+	])('maps a %i Dependabot response to %s', async (status, expected) => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(null, { status }))
+		);
+		await expect(fetchDependabotAlerts('example-user/repo', {})).resolves.toBe(expected);
+	});
+
+	it('treats a failed Dependabot request as unknown', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => {
+				throw new Error('network down');
+			})
+		);
+		await expect(fetchDependabotAlerts('example-user/repo', {})).resolves.toBeNull();
 	});
 });

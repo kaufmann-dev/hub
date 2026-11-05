@@ -1,0 +1,1 @@
+ALTER TABLE "github_project" ADD COLUMN "dependabot_alerts" boolean;
