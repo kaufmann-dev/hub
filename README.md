@@ -118,13 +118,13 @@ Set `ORIGIN`, `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and optiona
 
 ## Coolify Deployment
 
-Deployed via Coolify's **Nixpacks** build pack. Install, build, and start commands (run with the
-pinned pnpm 11.18.0) and the Node version live in `nixpacks.toml` and `package.json`; the settings below must be set in the
-Coolify UI.
+Deployed via Coolify's **Railpack** build pack. Railpack installs and builds with the pnpm version
+from `packageManager` and the Node version from `engines.node`; `railpack.json` sets the start
+command. The settings below must be set in the Coolify UI.
 
 | Setting        | Value    |
 | -------------- | -------- |
-| Build Pack     | Nixpacks |
+| Build Pack     | Railpack |
 | Base Directory | `/`      |
 
 Migrations run automatically on container start (`scripts/migrate.mjs`), so no pre/post

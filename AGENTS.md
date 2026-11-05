@@ -200,15 +200,15 @@ Avoid these legacy Svelte features in new or refactored code:
 ## Local Database and Deployment
 
 - **Database**: Use the manually managed Podman PostgreSQL container `postgres-sveltekit` (database `hub`) for local development. `compose.yaml` provides a self-contained local-production stack (app + postgres) for podman. Treat production database provisioning (Coolify) as separate infrastructure.
-- **Debugging**: Keep deployment fixes scoped to the exact failing layer. Identify the failing command first in Coolify or Nixpacks before fixing it.
+- **Debugging**: Keep deployment fixes scoped to the exact failing layer. Identify the failing command first in Coolify or Railpack before fixing it.
 
-For Coolify and Nixpacks:
+For Coolify and Railpack:
 
 - If `pnpm-workspace.yaml` exists in a single-package app, keep a non-empty `packages` list with `.` included.
-- Use `engines.node` and `nixpacks.toml` to pin compatible Node behavior when dependencies require a minimum patch version.
+- Use `engines.node` to pin compatible Node behavior when dependencies require a minimum patch version. Railpack reads it as the runtime version; do not duplicate it in `railpack.json`.
 - Read deployment environment variables from `process.env`. Load `.env` only after checking that the file exists.
 - Validate seed script environment variables before using them.
 - Document and enforce minimum seeded account password lengths.
-- Let Nixpacks handle the install phase unless a project-specific reason requires otherwise.
+- Let Railpack handle the install phase unless a project-specific reason requires otherwise.
 - Prefer explicit deploy or runtime migration and seed steps when Coolify supports them.
 - Keep build-time migration and seed scripts idempotent when they must run during image builds.
