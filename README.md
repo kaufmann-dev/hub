@@ -41,6 +41,9 @@ area for editing everything. It also shows stock-market status cards for curated
   cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a
   "Sync now" button.
 
+Website availability, project status, and market info icons show their existing details in
+shadcn-svelte tooltips on hover, keyboard focus, or tap.
+
 ## Authentication Setup
 
 Hub protects `/admin` with an OIDC Authorization Code + PKCE S256 flow against a confidential

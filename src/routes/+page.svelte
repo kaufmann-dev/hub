@@ -16,7 +16,7 @@
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
-	import * as Popover from '#lib/components/ui/popover/index.js';
+	import IconTooltip from '#lib/components/hub/IconTooltip.svelte';
 	import { clock } from '#lib/clock.svelte.js';
 	import { faviconUrls } from '#lib/favicon.js';
 	import WeatherIcon from '#lib/components/hub/WeatherIcon.svelte';
@@ -337,17 +337,13 @@
 							>
 								<span class="font-mono tabular-nums">{market.hoursLabel}</span>
 								{#if market.supplementalDetail}
-									<Popover.Root>
-										<Popover.Trigger
-											class="-m-2 shrink-0 rounded-full p-2 hover:text-foreground"
-											aria-label={`Schedule detail for ${market.title}`}
-										>
-											<Info class="size-3.5" />
-										</Popover.Trigger>
-										<Popover.Content class="w-auto max-w-72 text-xs">
-											<p>{market.supplementalDetail}</p>
-										</Popover.Content>
-									</Popover.Root>
+									<IconTooltip
+										message={market.supplementalDetail}
+										class="-my-2 -mr-1 hover:text-foreground"
+										aria-label={`Schedule detail for ${market.title}`}
+									>
+										<Info class="size-3.5" />
+									</IconTooltip>
 								{/if}
 							</div>
 						</div>
@@ -381,31 +377,18 @@
 								>
 									<WebsiteIcon lightSrc={favicon.light} darkSrc={favicon.dark} />
 									<span class="min-w-0 flex-1">
-										<span class="flex w-full items-center justify-between gap-2 font-medium">
+										<span
+											class={[
+												'flex w-full items-center gap-2 font-medium',
+												site.kind === 'personal' && 'pr-6'
+											]}
+										>
 											<span class="flex min-w-0 items-center gap-1.5">
 												<span class="truncate">{site.title}</span>
 												<ExternalLink
 													class="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100"
 												/>
 											</span>
-											{#if site.kind === 'personal'}
-												{@const health = healthFor(site)}
-												{@const statusLabel = healthLabel(health)}
-												<span
-													role="img"
-													aria-label={statusLabel}
-													title={statusLabel}
-													data-health-status={health?.state ?? 'unknown'}
-													class={[
-														'size-2 shrink-0 rounded-full',
-														health?.state === 'healthy'
-															? 'bg-emerald-500'
-															: health?.state === 'unhealthy'
-																? 'bg-red-500'
-																: 'bg-muted-foreground/50'
-													]}
-												></span>
-											{/if}
 										</span>
 										{#if site.description}
 											<span class="line-clamp-2 text-sm text-muted-foreground"
@@ -414,6 +397,25 @@
 										{/if}
 									</span>
 								</a>
+								{#if site.kind === 'personal'}
+									{@const health = healthFor(site)}
+									<IconTooltip
+										message={healthLabel(health)}
+										data-health-status={health?.state ?? 'unknown'}
+										class="absolute top-4 right-2"
+									>
+										<span
+											class={[
+												'size-2 rounded-full',
+												health?.state === 'healthy'
+													? 'bg-emerald-500'
+													: health?.state === 'unhealthy'
+														? 'bg-red-500'
+														: 'bg-muted-foreground/50'
+											]}
+										></span>
+									</IconTooltip>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -447,30 +449,26 @@
 									<span class="truncate">{project.name}</span>
 								</a>
 								{#if project.archived}
-									<span
-										role="img"
-										aria-label="Archived repository"
-										title="Archived repository"
+									<IconTooltip
+										message="Archived repository"
 										data-archived
-										class="shrink-0 text-amber-500"
+										class="-mr-1 text-amber-500"
 									>
 										<Archive class="size-4" />
-									</span>
+									</IconTooltip>
 								{:else if project.dependabotAlerts !== null}
 									{@const DependabotIcon = project.dependabotAlerts ? ShieldCheck : ShieldOff}
 									{@const dependabotLabel = `Dependabot alerts ${project.dependabotAlerts ? 'enabled' : 'disabled'}`}
-									<span
-										role="img"
-										aria-label={dependabotLabel}
-										title={dependabotLabel}
+									<IconTooltip
+										message={dependabotLabel}
 										data-dependabot-alerts={project.dependabotAlerts ? 'enabled' : 'disabled'}
 										class={[
-											'shrink-0',
+											'-mr-1',
 											project.dependabotAlerts ? 'text-emerald-500' : 'text-red-500'
 										]}
 									>
 										<DependabotIcon class="size-4" />
-									</span>
+									</IconTooltip>
 								{/if}
 							</div>
 							{#if project.descriptionOverride ?? project.description}
