@@ -21,6 +21,21 @@ describe('favicon discovery', () => {
 		]);
 	});
 
+	it('prefers declared icons over apple touch icons listed before them', () => {
+		const candidates = faviconCandidates(
+			`
+				<link rel="apple-touch-icon" href="/media/apple-touch-icon.png">
+				<link rel="icon" type="image/svg+xml" href="/media/logo.svg">
+			`,
+			new URL('https://example.com/')
+		);
+
+		expect(candidates.unqualified.map(String)).toEqual([
+			'https://example.com/media/logo.svg',
+			'https://example.com/media/apple-touch-icon.png'
+		]);
+	});
+
 	it('derives dark icons from absolute and relative data-base-href declarations', () => {
 		const candidates = faviconCandidates(
 			`

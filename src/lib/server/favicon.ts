@@ -115,6 +115,8 @@ export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 	const $ = cheerio.load(html);
 	const groups: CandidateGroups = { light: [], dark: [], unqualified: [] };
 	const derivedDark: URL[] = [];
+	// iOS home-screen icons are a last resort: they are often opaque tiles, not the site's mark.
+	const touchIcons = new Map<URL[], URL[]>();
 	$('link[href]').each((_index, element) => {
 		const rel = ($(element).attr('rel') ?? '').toLowerCase().split(/\s+/);
 		if (!rel.some((value) => value === 'icon' || value === 'apple-touch-icon')) return;
@@ -137,7 +139,11 @@ export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 				(['http:', 'https:'].includes(url.protocol) ||
 					(url.protocol === 'data:' && inlineSvgData(url) !== null));
 			if (validDeclaration && !group.some((item) => item.href === url.href)) {
-				group.push(url);
+				if (rel.includes('icon')) {
+					group.push(url);
+				} else {
+					touchIcons.set(group, [...(touchIcons.get(group) ?? []), url]);
+				}
 			}
 
 			const baseHref = $(element).attr('data-base-href');
@@ -155,6 +161,11 @@ export function faviconCandidates(html: string, pageUrl: URL): CandidateGroups {
 			// Ignore malformed icon links and continue with other candidates.
 		}
 	});
+	for (const [group, urls] of touchIcons) {
+		for (const url of urls) {
+			if (!group.some((item) => item.href === url.href)) group.push(url);
+		}
+	}
 	groups.dark.push(
 		...derivedDark.filter((url) => !groups.dark.some((item) => item.href === url.href))
 	);
