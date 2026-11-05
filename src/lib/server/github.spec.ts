@@ -99,6 +99,24 @@ describe('GitHub project sync', () => {
 		expect(mock.upserts).toEqual([expect.objectContaining({ dependabotAlerts: true })]);
 	});
 
+	it('syncs archived repositories without checking Dependabot and still skips forks', async () => {
+		mock.env.GITHUB_TOKEN = 'secret-token';
+		const fetchMock = vi.fn(async () =>
+			githubResponse([
+				{ ...repo, archived: true },
+				{ ...repo, id: 2, name: 'fork', full_name: 'example-user/fork', fork: true }
+			])
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		await expect(syncGithubProjects()).resolves.toBe(1);
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(mock.upserts).toEqual([
+			expect.objectContaining({ repoId: 1, archived: true, dependabotAlerts: null })
+		]);
+	});
+
 	it('skips the Dependabot check without a token', async () => {
 		const fetchMock = vi.fn(async () => githubResponse([repo]));
 		vi.stubGlobal('fetch', fetchMock);

@@ -99,6 +99,13 @@
       "when": 1793877697070,
       "tag": "0013_github_project_dependabot_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793879482020,
+      "tag": "0014_github_project_archived",
+      "breakpoints": true
     }
   ]
 }

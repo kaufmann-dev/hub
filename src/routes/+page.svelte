@@ -10,7 +10,8 @@
 		Landmark,
 		Info,
 		ShieldCheck,
-		ShieldOff
+		ShieldOff,
+		Archive
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -445,7 +446,17 @@
 									<GithubMark class="size-4 shrink-0" />
 									<span class="truncate">{project.name}</span>
 								</a>
-								{#if project.dependabotAlerts !== null}
+								{#if project.archived}
+									<span
+										role="img"
+										aria-label="Archived repository"
+										title="Archived repository"
+										data-archived
+										class="shrink-0 text-amber-500"
+									>
+										<Archive class="size-4" />
+									</span>
+								{:else if project.dependabotAlerts !== null}
 									{@const DependabotIcon = project.dependabotAlerts ? ShieldCheck : ShieldOff}
 									{@const dependabotLabel = `Dependabot alerts ${project.dependabotAlerts ? 'enabled' : 'disabled'}`}
 									<span

@@ -12,7 +12,9 @@
 		Eye,
 		EyeOff,
 		Star,
-		ArrowLeft
+		ArrowLeft,
+		Archive,
+		RotateCcw
 	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { SOURCES, TRIGGERS, type DndEvent } from 'svelte-dnd-action';
@@ -563,6 +565,27 @@
 					</form>
 					<form
 						method="POST"
+						action="?/resetProjectOrder"
+						use:enhance={() => {
+							return async ({ result, update }) => {
+								await update();
+								clearProjectOverrides();
+								if (result.type === 'success') toast.success('Project order reset.');
+								else toast.error('Resetting the project order failed.');
+							};
+						}}
+					>
+						<Button
+							type="submit"
+							variant="outline"
+							size="sm"
+							disabled={savingReorder === 'projects'}
+						>
+							<RotateCcw class="size-4" /> Reset order
+						</Button>
+					</form>
+					<form
+						method="POST"
 						action="?/syncNow"
 						use:enhance={() => {
 							syncing = true;
@@ -620,6 +643,14 @@
 												</span>
 												{#if project.language}<Badge variant="secondary">{project.language}</Badge
 													>{/if}
+												{#if project.archived}
+													<Badge
+														variant="outline"
+														class="border-amber-500/40 text-amber-600 dark:text-amber-400"
+													>
+														<Archive class="size-3" />Archived
+													</Badge>
+												{/if}
 											</div>
 											<div class="truncate text-sm text-muted-foreground">
 												{project.descriptionOverride ?? project.description ?? '—'}

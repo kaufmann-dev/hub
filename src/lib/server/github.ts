@@ -99,12 +99,14 @@ export async function syncGithubProjects(): Promise<number> {
 			}
 
 			const repos = allRepos;
-			const usable = repos.filter((r) => !r.fork && !r.archived);
+			const usable = repos.filter((r) => !r.fork);
 
 			const now = new Date();
 			for (const r of usable) {
 				// Sequential on purpose: GitHub penalizes concurrent bursts with secondary rate limits.
-				const dependabotAlerts = token ? await fetchDependabotAlerts(r.full_name, headers) : null;
+				// Archived repos show an archive marker instead, so their setting is not fetched.
+				const dependabotAlerts =
+					token && !r.archived ? await fetchDependabotAlerts(r.full_name, headers) : null;
 				await db
 					.insert(githubProject)
 					.values({
@@ -119,6 +121,7 @@ export async function syncGithubProjects(): Promise<number> {
 						topics: r.topics ?? [],
 						pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
 						dependabotAlerts,
+						archived: r.archived,
 						syncedAt: now
 					})
 					.onConflictDoUpdate({
@@ -134,6 +137,7 @@ export async function syncGithubProjects(): Promise<number> {
 							topics: r.topics ?? [],
 							pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
 							dependabotAlerts,
+							archived: r.archived,
 							syncedAt: now
 						}
 					});

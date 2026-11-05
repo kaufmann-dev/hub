@@ -1,4 +1,4 @@
-import { asc, desc, eq, getTableColumns } from 'drizzle-orm';
+import { asc, eq, getTableColumns } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
 import {
 	website,
@@ -10,6 +10,7 @@ import {
 } from '#lib/server/db/schema.js';
 import { getWeather } from '#lib/server/weather.js';
 import { syncIfStale } from '#lib/server/github.js';
+import { projectOrderBy } from '#lib/server/project-order.js';
 import { refreshStaleFavicons } from '#lib/server/favicon.js';
 import { iconVersion } from '#lib/server/icon-override.js';
 import { getWatchedMarketStatuses } from '#lib/server/markets.js';
@@ -53,7 +54,7 @@ export const load: PageServerLoad = async () => {
 			.select()
 			.from(githubProject)
 			.where(eq(githubProject.hidden, false))
-			.orderBy(asc(githubProject.sortOrder), desc(githubProject.stars), asc(githubProject.id)),
+			.orderBy(...projectOrderBy),
 		db
 			.select()
 			.from(city)

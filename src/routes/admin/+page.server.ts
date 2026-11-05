@@ -3,6 +3,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.js';
 import { website, githubProject, city, marketWatchlist } from '#lib/server/db/schema.js';
 import { syncGithubProjects } from '#lib/server/github.js';
+import { projectOrderBy } from '#lib/server/project-order.js';
 import { refreshAllWebsiteFavicons } from '#lib/server/favicon.js';
 import {
 	getConfiguredMarkets,
@@ -17,12 +18,7 @@ export const load: PageServerLoad = async () => {
 		db
 			.select()
 			.from(githubProject)
-			.orderBy(
-				asc(githubProject.hidden),
-				asc(githubProject.sortOrder),
-				desc(githubProject.stars),
-				asc(githubProject.id)
-			),
+			.orderBy(asc(githubProject.hidden), ...projectOrderBy),
 		db.select().from(city).orderBy(asc(city.sortOrder), asc(city.name)),
 		getConfiguredMarkets(),
 		getSupportedMarkets()
@@ -136,6 +132,12 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const hidden = form.get('hidden') === 'true';
 		await db.update(githubProject).set({ hidden });
+		return { success: true };
+	},
+
+	resetProjectOrder: async ({ locals }) => {
+		if (!locals.isAdmin) return fail(403);
+		await db.update(githubProject).set({ sortOrder: 0 });
 		return { success: true };
 	},
 

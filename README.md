@@ -31,9 +31,11 @@ area for editing everything. It also shows stock-market status cards for curated
   theme-aware favicons (replaceable per website with an uploaded icon, optionally with a separate
   dark-mode variant) and cached server-side availability indicators for personal sites.
 - **GitHub projects** — auto-synced from the configured GitHub account, cached in the DB, with
-  per-project overrides (hide, custom description) and admin drag ordering. Each card shows
-  whether Dependabot alerts are enabled when `GITHUB_TOKEN` can read repository administration
-  settings.
+  per-project overrides (hide, custom description) and admin drag ordering. Forks are skipped;
+  archived repos are included and marked with an amber archive icon. Other cards show whether
+  Dependabot alerts are enabled when `GITHUB_TOKEN` can read repository administration settings.
+  "Reset order" in `/admin` drops the manual order back to the default: Dependabot enabled,
+  disabled, unknown, then archived, each group alphabetical.
 - **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
   cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a

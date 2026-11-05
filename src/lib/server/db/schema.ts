@@ -84,6 +84,7 @@ export const githubProject = pgTable('github_project', {
 	pushedAt: timestamp('pushed_at', { withTimezone: true }),
 	/** Dependabot alerts on/off; null when the token cannot read the setting. */
 	dependabotAlerts: boolean('dependabot_alerts'),
+	archived: boolean('archived').notNull().default(false),
 	syncedAt: timestamp('synced_at', { withTimezone: true }).notNull().defaultNow(),
 	// --- user overrides (preserved across syncs) ---
 	descriptionOverride: text('description_override'),
