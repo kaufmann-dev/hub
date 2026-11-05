@@ -24,7 +24,7 @@
 		type="button"
 		aria-label={message}
 		class={cn(
-			'inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+			'inline-flex size-6 shrink-0 items-center justify-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
 			className
 		)}
 		{...restProps}
