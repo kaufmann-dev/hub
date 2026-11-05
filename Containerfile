@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # --- Build stage ---
-FROM node:24-slim AS builder
+FROM node:26-slim AS builder
 WORKDIR /app
 
-# Install pnpm via corepack
-RUN corepack enable
+# Install pnpm via corepack (no longer bundled with Node)
+RUN npm install -g corepack && corepack enable
 
 # Install dependencies (cache-friendly: lockfile first)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -22,7 +22,7 @@ RUN pnpm build
 RUN pnpm prune --prod
 
 # --- Runtime stage ---
-FROM node:24-slim AS runner
+FROM node:26-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
