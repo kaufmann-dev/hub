@@ -16,6 +16,7 @@ interface GithubRepo {
 	pushed_at: string | null;
 	fork: boolean;
 	archived: boolean;
+	private: boolean;
 }
 
 let lastSync = 0;
@@ -122,6 +123,7 @@ export async function syncGithubProjects(): Promise<number> {
 						pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
 						dependabotAlerts,
 						archived: r.archived,
+						private: r.private,
 						syncedAt: now
 					})
 					.onConflictDoUpdate({
@@ -138,6 +140,7 @@ export async function syncGithubProjects(): Promise<number> {
 							pushedAt: r.pushed_at ? new Date(r.pushed_at) : null,
 							dependabotAlerts,
 							archived: r.archived,
+							private: r.private,
 							syncedAt: now
 						}
 					});

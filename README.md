@@ -34,7 +34,8 @@ area for editing everything. It also shows stock-market status cards for curated
   per-project overrides (hide, custom description) and admin drag ordering. Forks are skipped;
   archived repos are included and marked with an amber archive icon. Other cards show whether
   Dependabot alerts are enabled when `GITHUB_TOKEN` can read repository administration settings.
-  "Reset order" in `/admin` drops the manual order back to the default: Dependabot enabled,
+  Every card's footer shows whether the repo is public or private (private repos are synced only
+  with `GITHUB_TOKEN`). "Reset order" in `/admin` drops the manual order back to the default: Dependabot enabled,
   disabled, unknown, then archived, each group alphabetical.
 - **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,

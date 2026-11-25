@@ -44,7 +44,8 @@ const repo = {
 	topics: [],
 	pushed_at: null,
 	fork: false,
-	archived: false
+	archived: false,
+	private: true
 };
 
 function githubResponse(repos: unknown[]) {
@@ -96,7 +97,9 @@ describe('GitHub project sync', () => {
 			'https://api.github.com/repos/example-user/private-repo/vulnerability-alerts',
 			expect.anything()
 		);
-		expect(mock.upserts).toEqual([expect.objectContaining({ dependabotAlerts: true })]);
+		expect(mock.upserts).toEqual([
+			expect.objectContaining({ dependabotAlerts: true, private: true })
+		]);
 	});
 
 	it('syncs archived repositories without checking Dependabot and still skips forks', async () => {
@@ -118,13 +121,15 @@ describe('GitHub project sync', () => {
 	});
 
 	it('skips the Dependabot check without a token', async () => {
-		const fetchMock = vi.fn(async () => githubResponse([repo]));
+		const fetchMock = vi.fn(async () => githubResponse([{ ...repo, private: false }]));
 		vi.stubGlobal('fetch', fetchMock);
 
 		await expect(syncGithubProjects()).resolves.toBe(1);
 
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-		expect(mock.upserts).toEqual([expect.objectContaining({ dependabotAlerts: null })]);
+		expect(mock.upserts).toEqual([
+			expect.objectContaining({ dependabotAlerts: null, private: false })
+		]);
 	});
 
 	it.each([

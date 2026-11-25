@@ -11,7 +11,9 @@
 		Info,
 		ShieldCheck,
 		ShieldOff,
-		Archive
+		Archive,
+		Lock,
+		Globe
 	} from '@lucide/svelte';
 	import { toggleMode } from 'mode-watcher';
 	import { Input } from '#lib/components/ui/input/index.js';
@@ -484,6 +486,15 @@
 									<Star class="size-3" />
 									{project.stars}
 								</span>
+								{#if project.private}
+									<span class="inline-flex items-center gap-1" data-visibility="private">
+										<Lock class="size-3" />Private
+									</span>
+								{:else}
+									<span class="inline-flex items-center gap-1" data-visibility="public">
+										<Globe class="size-3" />Public
+									</span>
+								{/if}
 								{#if project.homepage}
 									<a
 										href={project.homepage}

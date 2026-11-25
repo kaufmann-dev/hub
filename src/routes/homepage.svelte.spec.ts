@@ -193,13 +193,13 @@ describe('hub homepage website availability', () => {
 		});
 
 		await expect
-			.element(page.getByRole('img', { name: /Available — HTTP 200/ }))
+			.element(page.getByRole('button', { name: /Available — HTTP 200/ }))
 			.toHaveAttribute('data-health-status', 'healthy');
 		await expect
-			.element(page.getByRole('img', { name: /Unavailable — HTTP 503/ }))
+			.element(page.getByRole('button', { name: /Unavailable — HTTP 503/ }))
 			.toHaveAttribute('data-health-status', 'unhealthy');
 		await expect
-			.element(page.getByRole('img', { name: 'Status not checked yet' }))
+			.element(page.getByRole('button', { name: 'Status not checked yet' }))
 			.toHaveAttribute('data-health-status', 'unknown');
 		expect(document.querySelectorAll('[data-health-status]')).toHaveLength(3);
 		expect(
@@ -224,12 +224,78 @@ describe('hub homepage website availability', () => {
 		);
 
 		await expect
-			.element(page.getByRole('img', { name: /Available — HTTP 204/ }))
+			.element(page.getByRole('button', { name: /Available — HTTP 204/ }))
 			.toHaveAttribute('data-health-status', 'healthy');
 		const refreshedDot = document.querySelector<HTMLElement>(
 			'[data-health-status="healthy"][aria-label*="HTTP 204"]'
 		)!;
-		expect(refreshedDot.parentElement?.classList.contains('justify-between')).toBe(true);
+		expect(refreshedDot.classList.contains('absolute')).toBe(true);
 		expect(refreshedDot.parentElement?.lastElementChild).toBe(refreshedDot);
+	});
+});
+
+describe('hub homepage project visibility', () => {
+	it('labels each project card as public or private', async () => {
+		const syncedAt = new Date('2026-07-18T10:00:00Z');
+		const project = {
+			fullName: '',
+			url: '',
+			description: null,
+			homepage: null,
+			language: 'TypeScript',
+			stars: 0,
+			topics: [],
+			pushedAt: null,
+			dependabotAlerts: null,
+			archived: false,
+			syncedAt,
+			descriptionOverride: null,
+			hidden: false,
+			sortOrder: 0
+		};
+		render(HomepageTest, {
+			data: {
+				websites: [],
+				projects: [
+					{
+						...project,
+						id: 1,
+						repoId: 1,
+						name: 'secret-repo',
+						fullName: 'example-user/secret-repo',
+						url: 'https://github.com/example-user/secret-repo',
+						private: true
+					},
+					{
+						...project,
+						id: 2,
+						repoId: 2,
+						name: 'open-repo',
+						fullName: 'example-user/open-repo',
+						url: 'https://github.com/example-user/open-repo',
+						private: false
+					}
+				],
+				cities: [],
+				weatherByCity: {},
+				markets: []
+			}
+		});
+
+		await expect.element(page.getByText('secret-repo')).toBeInTheDocument();
+		const cardFor = (url: string) =>
+			document.querySelector<HTMLAnchorElement>(`a[href="${url}"]`)!.closest('.rounded-xl')!;
+
+		const privateLabel = cardFor('https://github.com/example-user/secret-repo').querySelector(
+			'[data-visibility]'
+		);
+		expect(privateLabel?.getAttribute('data-visibility')).toBe('private');
+		expect(privateLabel?.textContent?.trim()).toBe('Private');
+
+		const publicLabel = cardFor('https://github.com/example-user/open-repo').querySelector(
+			'[data-visibility]'
+		);
+		expect(publicLabel?.getAttribute('data-visibility')).toBe('public');
+		expect(publicLabel?.textContent?.trim()).toBe('Public');
 	});
 });

@@ -14,6 +14,7 @@
 		Star,
 		ArrowLeft,
 		Archive,
+		Lock,
 		RotateCcw
 	} from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
@@ -650,6 +651,9 @@
 													>
 														<Archive class="size-3" />Archived
 													</Badge>
+												{/if}
+												{#if project.private}
+													<Badge variant="outline"><Lock class="size-3" />Private</Badge>
 												{/if}
 											</div>
 											<div class="truncate text-sm text-muted-foreground">

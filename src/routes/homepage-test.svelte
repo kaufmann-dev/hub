@@ -1,7 +1,10 @@
 <script lang="ts">
+	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import HubPage from './+page.svelte';
 
 	let { data } = $props();
 </script>
 
-<HubPage {data} />
+<Tooltip.Provider>
+	<HubPage {data} />
+</Tooltip.Provider>
