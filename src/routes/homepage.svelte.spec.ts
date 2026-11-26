@@ -299,3 +299,84 @@ describe('hub homepage project visibility', () => {
 		expect(publicLabel?.textContent?.trim()).toBe('Public');
 	});
 });
+
+describe('hub homepage project filters', () => {
+	it('filters project cards by visibility and status toggles', async () => {
+		const syncedAt = new Date('2026-07-18T10:00:00Z');
+		const project = (
+			id: number,
+			name: string,
+			overrides: { private: boolean; archived: boolean; dependabotAlerts: boolean | null }
+		) => ({
+			id,
+			repoId: id,
+			name,
+			fullName: `example-user/${name}`,
+			url: `https://github.com/example-user/${name}`,
+			description: null,
+			homepage: null,
+			language: 'TypeScript',
+			stars: 0,
+			topics: [],
+			pushedAt: null,
+			syncedAt,
+			descriptionOverride: null,
+			hidden: false,
+			sortOrder: id,
+			...overrides
+		});
+		render(HomepageTest, {
+			data: {
+				websites: [],
+				projects: [
+					project(1, 'private-on', { private: true, archived: false, dependabotAlerts: true }),
+					project(2, 'public-off', { private: false, archived: false, dependabotAlerts: false }),
+					project(3, 'public-archived', { private: false, archived: true, dependabotAlerts: null }),
+					project(4, 'private-unknown', { private: true, archived: false, dependabotAlerts: null })
+				],
+				cities: [],
+				weatherByCity: {},
+				markets: []
+			}
+		});
+
+		const visibleProjects = () =>
+			Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href^="https://github.com/"]'))
+				.map((a) => a.textContent?.trim())
+				.sort();
+		const toggle = (name: string) =>
+			page
+				.getByRole('group', { name: /^Filter by / })
+				.getByRole('button', { name, exact: true })
+				.click();
+
+		await expect.element(page.getByText('private-on')).toBeInTheDocument();
+		expect(visibleProjects()).toEqual([
+			'private-on',
+			'private-unknown',
+			'public-archived',
+			'public-off'
+		]);
+
+		await toggle('Private');
+		await expect.poll(visibleProjects).toEqual(['private-on', 'private-unknown']);
+
+		await toggle('Dependabot alerts enabled');
+		await expect.poll(visibleProjects).toEqual(['private-on']);
+
+		await toggle('Archived');
+		await expect.poll(visibleProjects).toEqual(['private-on']);
+
+		await toggle('Private');
+		await expect.poll(visibleProjects).toEqual(['private-on', 'public-archived']);
+
+		await toggle('Dependabot alerts enabled');
+		await toggle('Archived');
+		await toggle('Private');
+		await toggle('Dependabot alerts disabled');
+		await expect
+			.element(page.getByText('No projects match the current filters.'))
+			.toBeInTheDocument();
+		expect(visibleProjects()).toEqual([]);
+	});
+});

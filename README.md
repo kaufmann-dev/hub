@@ -36,14 +36,18 @@ area for editing everything. It also shows stock-market status cards for curated
   Dependabot alerts are enabled when `GITHUB_TOKEN` can read repository administration settings.
   Every card's footer shows whether the repo is public or private (private repos are synced only
   with `GITHUB_TOKEN`). "Reset order" in `/admin` drops the manual order back to the default: Dependabot enabled,
-  disabled, unknown, then archived, each group alphabetical.
+  disabled, unknown, then archived, each group alphabetical. Icon-only toggles in the section
+  header filter the cards by visibility (private, public) and status (archived, Dependabot
+  enabled, Dependabot disabled): an empty group shows everything, pressed toggles combine with OR
+  within a group and AND across groups and the text filter. Filters reset on reload.
 - **Admin** (`/admin`) — gated by OIDC login (Pocket ID); CRUD for websites and cities, watchlist
   management for canonical exchanges, per-row show/hide visibility toggles (websites, projects,
   cities, markets), accessible drag-and-drop ordering across every list, bulk icon refresh, and a
   "Sync now" button.
 
 Website availability, project status, and market info icons show their existing details in
-shadcn-svelte tooltips on hover, keyboard focus, or tap.
+shadcn-svelte tooltips on hover, keyboard focus, or tap; project filter toggles label themselves
+in tooltips on hover or keyboard focus.
 
 ## Authentication Setup
 

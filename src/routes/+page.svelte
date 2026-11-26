@@ -24,6 +24,10 @@
 	import WeatherIcon from '#lib/components/hub/WeatherIcon.svelte';
 	import GithubMark from '#lib/components/hub/GithubMark.svelte';
 	import WebsiteIcon from '#lib/components/hub/WebsiteIcon.svelte';
+	import ProjectFilters, {
+		type ProjectStatus,
+		type ProjectVisibility
+	} from '#lib/components/hub/ProjectFilters.svelte';
 	import type { WebsiteHealthRefreshResponse, WebsiteHealthSnapshot } from '#lib/website-health.js';
 	import type { Attachment } from 'svelte/attachments';
 	import type { PageData } from './$types';
@@ -134,9 +138,32 @@
 			{ id: 'third_party' as const, title: 'Third-party websites', websites: thirdPartyWebsites }
 		].filter((group) => group.websites.length > 0)
 	);
+	let visibilityFilter = $state<ProjectVisibility[]>([]);
+	let statusFilter = $state<ProjectStatus[]>([]);
+	const projectFiltersActive = $derived(visibilityFilter.length > 0 || statusFilter.length > 0);
+
+	type ProjectEntry = PageData['projects'][number];
+
+	function projectStatus(p: ProjectEntry): ProjectStatus | null {
+		if (p.archived) return 'archived';
+		if (p.dependabotAlerts === null) return null;
+		return p.dependabotAlerts ? 'dependabot-on' : 'dependabot-off';
+	}
+
+	// Empty group = no restriction; OR within a group, AND across groups.
+	function matchesProjectFilters(p: ProjectEntry): boolean {
+		const visibility: ProjectVisibility = p.private ? 'private' : 'public';
+		if (visibilityFilter.length && !visibilityFilter.includes(visibility)) return false;
+		if (!statusFilter.length) return true;
+		const status = projectStatus(p);
+		return status !== null && statusFilter.includes(status);
+	}
+
 	const filteredProjects = $derived(
-		data.projects.filter((p) =>
-			matches(p.name, p.descriptionOverride ?? p.description, p.language, p.fullName)
+		data.projects.filter(
+			(p) =>
+				matches(p.name, p.descriptionOverride ?? p.description, p.language, p.fullName) &&
+				matchesProjectFilters(p)
 		)
 	);
 	const filteredMarkets = $derived(
@@ -431,9 +458,14 @@
 
 		<!-- GitHub projects -->
 		<section>
-			<h2 class="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-				GitHub projects
-			</h2>
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<h2 class="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+					GitHub projects
+				</h2>
+				{#if data.projects.length}
+					<ProjectFilters bind:visibility={visibilityFilter} bind:status={statusFilter} />
+				{/if}
+			</div>
 			{#if filteredProjects.length}
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each filteredProjects as project (project.id)}
@@ -510,7 +542,11 @@
 					{/each}
 				</div>
 			{:else if data.projects.length}
-				<p class="text-sm text-muted-foreground">No projects match "{q}".</p>
+				<p class="text-sm text-muted-foreground">
+					{projectFiltersActive
+						? 'No projects match the current filters.'
+						: `No projects match "${q}".`}
+				</p>
 			{:else}
 				<p class="text-sm text-muted-foreground">
 					No projects synced yet. Open
